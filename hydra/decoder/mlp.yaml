@@ -1,0 +1,12 @@
+name : "mlp"
+
+model:
+  _target_: tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_: tamrfsits.core.mlp.MLP
+    config:
+      _target_: tamrfsits.core.mlp.MLPConfig
+      in_channels: 136
+      out_channels: ${datamodule.total_nb_channels}
+      use_batch_norm: false
+      hidden_layers: [128, 128, 128]

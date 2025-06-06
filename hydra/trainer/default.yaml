@@ -1,0 +1,14 @@
+_target_: pytorch_lightning.Trainer
+accelerator: 'gpu'
+devices: 1
+min_epochs: 1
+max_epochs: 1000
+log_every_n_steps : 146 #(20 logs / epoch)
+val_check_interval : 1.
+num_sanity_val_steps : 0
+#gradient_clip_val: 0.5
+precision : 'bf16-mixed'
+deterministic: false
+detect_anomaly: false
+# profiler : 'pytorch'
+# max_steps: 10

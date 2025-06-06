@@ -1,0 +1,7 @@
+# @package _global_
+
+hydra:
+  run:
+    dir: ${original_work_dir}/runs/${name}/${label}
+  sweep:
+    dir: ${original_work_dir}/multiruns/${name}/${label}

@@ -1,0 +1,108 @@
+[project]
+authors = [{name = "Julien Michel", email = "julien.michel4@univ-tlse3.fr"}]
+dependencies = [ "esrgan @ git+https://github.com/jmichel-otb/esrgan.git", "rich>=13.9.4,<14", "types-pyyaml>=6.0.12.20240917,<7", "transformers>=4.48.2,<5", "remote-sensing-processor @ https://github.com/simonreise/remote-sensing-processor.git", "perflint>=0.8.1,<0.9", "auto-walrus>=0.3.4,<0.4", "pydms @ git+https://github.com/radosuav/pyDMS", "types-seaborn>=0.13.2.20250516,<0.14"]
+description = "Time-Aware Multi-Resolution Fusion of Satellite Image Time Series"
+name = "tamrfsits"
+requires-python = ">= 3.11"
+version = "0.1.0"
+
+[tool.pixi.project]
+channels = ["nvidia/label/cuda-11.8.0", "nvidia", "pytorch", "conda-forge"]
+platforms = ["linux-64"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pixi.dependencies]
+python = ">=3.11"
+cuda = {version = "*", channel="nvidia/label/cuda-11.8.0"}
+pytorch = {channel = "pytorch", version = "*"}
+torchvision = {channel = "pytorch", version = ">=0.19.1"}
+pytorch-cuda = {version = "11.8.*", channel="pytorch"}
+einops = ">=0.8.0,<0.9"
+rasterio = ">=1.3.6,<2"
+affine = ">=2.4.0,<3"
+lightning = ">=2.4.0,<3"
+torchmetrics = ">=1.5.2,<2"
+pandas = ">=2.2.3,<3"
+hydra-core = ">=1.3.2,<2"
+pynvml = ">=11.5.3,<12"
+tqdm = ">=4.67.1,<5"
+types-tqdm = ">=4.67.0.20241119,<5"
+pandas-stubs = ">=2.2.3.241009,<3"
+torchdata = ">=0.9.0,<0.10"
+piq = ">=0.8.0,<0.9"
+matplotlib = ">=3.9.1,<4"
+flake8-pyproject =">=1.2.3,<2"
+python-lsp-server = ">=1.12.0,<2"
+ruff = ">=0.7.4,<0.8"
+pre-commit = ">=4.0.1,<5"
+pytest = ">=8.3.3,<9"
+pytest-cov = ">=6.0.0,<7"
+mypy = ">=1.13.0,<2"
+isort = ">=5.13.2,<6"
+black = ">=24.10.0,<25"
+pyupgrade = ">=3.19.0,<4"
+refurb = ">=2.0.0,<3"
+flake8 = ">=7.1.1,<8"
+pylint = ">=3.3.1,<4"
+flake8-bugbear = ">=24.10.31,<25"
+typeguard = ">=4.4.1,<5"
+seaborn = ">=0.13.2,<0.14"
+ipython = ">=8.30.0,<9"
+tabulate = ">=0.9.0,<0.10"
+openeo = ">=0.39.1,<0.40"
+requests = ">=2.32.3,<3"
+shapely = ">=2.0.1,<3"
+h5netcdf = ">=1.6.1,<2"
+gdal = ">=3.6.2,<4"
+
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pixi.pypi-dependencies]
+tamrfsits = { path = ".", editable = true }
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+markers = [
+    "requires_data: marks tests as requiring external data",
+    "requires_gpu: marks tests as requiring GPUs",
+    "check_hydra : marks tests as checking hydra configuration",
+    "performances : marks tests that measure performances"
+]
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+
+[tool.isort]
+profile = "black"
+known_first_party = "tamrfsits"
+known_third_party = ["hydra"]
+
+[tool.flake8]
+max-line-length = "88"
+extend-select = "B950"
+extend-ignore = "E203,E501,E701"
+
+[tool.pylint.design]
+# Maximum number of arguments for function / method.
+max-args = 25
+
+# Maximum number of positional arguments for function / method.
+max-positional-arguments = 25
+
+# Maximum number of attributes for a class (see R0902).
+max-attributes = 25
+
+# Maximum number of locals for function / method body.
+max-locals = 35
+
+[tool.pylint.logging]
+logging-format-style = "new"
+
+[tool.pylint.imports]
+known-third-party = ["hydra"]

@@ -1,0 +1,8 @@
+name : "esrdec"
+
+model:
+  _target_ : tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_ : tamrfsits.core.esrgan.ESRSpatialDecoder
+    latent_size : 136 # 2 * latent size + sensor token size
+    out_nb_bands : ${datamodule.total_nb_channels}

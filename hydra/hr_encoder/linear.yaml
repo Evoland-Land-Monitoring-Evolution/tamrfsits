@@ -1,0 +1,12 @@
+name: 'linear'
+
+model:
+  _target_: tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_: tamrfsits.core.mlp.MLP
+    config:
+      _target_: tamrfsits.core.mlp.MLPConfig
+      in_channels: ${datamodule.nb_hr_channels}
+      out_channels: ${training_module.nb_latent_features}
+      use_batch_norm: false
+      hidden_layers: []

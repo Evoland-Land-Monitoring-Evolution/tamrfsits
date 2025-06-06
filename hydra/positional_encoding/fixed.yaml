@@ -1,0 +1,7 @@
+name: "fixedpe"
+
+model:
+  _target_ : tamrfsits.components.positional_encoder.FixedPositionalEncoder
+  nb_features: 64
+  mode: "CONCAT"
+  div : 365.

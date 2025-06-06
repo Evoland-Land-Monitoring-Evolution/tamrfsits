@@ -1,0 +1,376 @@
+#+TITLE: Temporal Attention, Multi-Resolution Fusion of Satellite Image Time-Series
+
+This repository holds the model and training scripts related to Temporal Attention, Multi-Resolution Fusion of Satellite Image Time-Series (TAMRFSITS).
+
+[[file:artwork/tamrfsits_output_examples.png]]
+
+Illustration of the TAMRFSITS model capabilities over Area Of Interest 31TFJ for year 2022. The model receives 25 Landsat observations and 40 Sentinel-2 observations as inputs (highlighted in *green*), and is asked to predict Landsat and Sentinel-2 at different query dates (highlighted in *red*). For some query dates, additional Sentinel-2 or Landsat images (e.g. not part of the model inputs) serve as reference data to compare the prediction with (highlighted in *blue*). Depending on the availability of clear or cloudy Sentinel2 or Landsat image in the input, several cases are presented. From top to bottom: row 1 shows Landsat prediction for a clear Landsat input date, row 2 shows Sentinel-2 predictions for a clear Sentinel-2 input date, row 3 shows Sentinel-2 prediction compared to true Sentinel-2 image for a clear Landsat input date, row 4 shows Sentinel-2 and Landsat prediction for a cloudy Landsat input date, and row 5 shows Sentinel-2 prediction compared to true Sentinel-2 image for a date when neither Landsat nor Sentinel-2 are seen by the model. Note that the model does not use cloud masks.
+
+* In a nutshell
+
+[[file:artwork/tamrfsits.png]]
+
+*TAMRFSITS* addresses the fusion of Satellite Image Time Series (SITS) of different spatial resolution and acquisition times. In contrast with methods from SoTA, *TAMRFSITS* predicts all bands from both sensors, at all dates and at best spatial resolution. Given two Satellite Image Time Series over the same area with different spatial resolution and temporal sampling, *TAMRFSITS* produces a latent reprensation, from which *TAMRFSITS* can reconstruct arbitrary query dates, at the maximum spatial resolution, and free of any cloud! *TAMRFSITS* follows an encoder - decoder scheme. The encoder comprises a datewise spatial encoder followed by a pixelwise temporal transformer encoder. The series of token from both sensors are informed with temporal positional encoding and learnable sensor tokens. The decoder receives the latent series of token and performs temporal cross-attention by means of a temporal transformer decoder and a series of temporal queries. A final datewise spatial decoder predicts all bands from both sensors.
+
+*TAMRFSITS* relies on several important innovations:
+- A complete and generic formulation of the SITS fusion problem,
+- A training scheme based on an advanced Masked Auto-Encoder strategy and new loss terms to favor correct temporal and spatial reconstruction,
+- A DL architecture using standard blocks from the litterature (RRDBNet, Transformer, Temporal Positional Encoding) allowing to implement the proposed general formulation.
+
+
+Find out more by reading the paper:
+#+BEGIN_QUOTE
+Julien Michel, Jordi Inglada. Temporal Attention Multi-Resolution Fusion of Satellite Image Time-Series, applied to Landsat-8 and Sentinel-2: all bands, any time, at best spatial resolution. 2025. [[https://hal.science/view/index/docid/5101526][⟨hal-05101526⟩]]
+#+END_QUOTE
+
+
+* Installation
+
+This project uses [[https://pixi.sh][pixi]] as package manager and project configuration tool. Install =pixi= like this:
+
+#+begin_src shell
+curl -fsSL https://pixi.sh/install.sh | bash
+#+end_src
+
+Clone the =tamrfsits= sources like this:
+#+begin_src shell
+git clone https://github.com/Evoland-Land-Monitoring-Evolution/tamrfsits
+#+end_src
+
+And use =pixi= to install the project and its dependencies:
+
+#+begin_src shell
+cd tamrfsits
+pixi install
+#+end_src
+
+Environment can be activated by using:
+
+#+begin_src shell
+pixi shell
+#+end_src
+
+* Code organization
+
+** Project layout
+
+The project is organised into the following sub-folders:
+
+- ~src~ : python modules used in the project,
+- ~hydra~ : hydra configuration to run the experiments,
+- ~bin~ : main training, testing and model exporting scripts,
+- ~slurm~ : sample slurm job files to run the training on a slurm-based infrastructure,
+- ~tests~ :  ~pytest~ tests
+
+** Code Quality
+
+A ~Makefile~ is provided to ease the use of code quality control tools. Among the interesting targets are:
+
+- ~make pylint-core~ : ~pylint~ checks  ~src~ folder (graded 9.96/10)
+- ~make pylint~ : ~pylint~ checks whole project (graded 9.03/10)
+- ~make mypy~ : ~mypy~ checks whole project (0 issue reported)
+- ~make test-smoke~ : ~pytest~ runs all tests that do not require data or gpu
+- ~make test-hydra-smoke~ : ~pytest~ runs ~hydra~ configuration tests that do not require the dataset
+- ~make test-hydra-all~ : ~pytest~ runs all ~hydra~ configuration tests
+- ~make test-all~ : ~pytest~ runs all tests
+
+A few environment variables are required to run some of the tests:
+
+- ~LS2S2_DATASET_PATH~ : Path to the LS2S2 dataset
+- ~TESTS_OUPTUT_PATH~ : A temporary folder where tests can spill data
+
+
+* Usage
+** Download the LS2S2 dataset
+
+The Landsat to Sentinel2 dataset (LS2S2) is [[https://doi.org/10.5281/zenodo.15471890][on *Zenodo*]]:
+
+#+begin_quote
+MICHEL, J. (2025). Landsat to Sentinel-2 (LS2S2), a dataset for the fusion of joint Landsat and Sentinel-2 Satellite Image Time Series (1.0.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15471890
+#+end_quote
+
+Note that a ~Dataset~ class for LS2S2 following [[https://pytorch.org/][pyTorch]] standard, as well as a ~DataModule~ following [[https://lightning.ai/pytorch-lightning][pyTorch-Lightning]] conventions are available in [[file:src/tamrfsits/data/]].
+
+** Download additional data (optional)
+
+Additional data can be downloaded using the same script that has been used to download the LS2S2 dataset. Note that this requires an OpenEO account on Terrascope intance ([[https://openeo.vito.be/openeo/1.2]]).
+
+Activate the download environment:
+
+#+begin_src shell
+pixi shell
+#+end_src
+
+Prepare a json file describing your AOI, by adapting the following example:
+
+#+begin_src json
+{
+    "name": "34TFS_24",
+    "aoi": [
+        610410.0,
+        5148960.0,
+        620310.0,
+        5158860.0
+    ],
+    "crs": "EPSG:32634",
+    "start_date": "2022-01-01",
+    "end_date": "2023-01-01"
+}
+#+end_src
+
+Json files for the LS2S2 dataset can be found in [[file:data/aois/]].
+
+In order to download the data, the first step is to submit the jobs to OpenEO:
+
+#+begin_src shell
+python bin/sample_ls2s2_fusion.py --json myaoi.json --output path_to_output_folder --mode submit
+#+end_src
+
+Once jobs are finished, we can run the download step which retrieves all results as NetCDF files:
+
+#+begin_src shell
+python bin/sample_ls2s2_fusion.py --json myaoi.json --output path_to_output_folder --mode download
+#+end_src
+
+Final step is to extract the NetCDF content to separate GeoTIFF:
+
+#+begin_src shell
+python bin/sample_ls2s2_fusion.py --json myaoi.json --output path_to_output_folder --mode extract
+#+end_src
+
+** Train the model (optional)
+
+Training can be achieved by means of the training script, once path to dataset is set in hydra configuration : [[hydra/locatation]].
+
+First, activate the default environment:
+
+#+begin_src shell
+pixi shell
+#+end_src
+
+Then run the training script using the default hydra configuration:
+
+#+begin_src shell
+PYTHONOPTIMIZE=TRUE PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python bin/train.py
+#+end_src
+
+
+Training is time consuming, and is best performed on a High Performance Computing Infrastructure. Here is an example of slurm job used to train TAMRFSITS on the CNES infrastructure:
+
+#+begin_src shell
+#!/bin/bash
+#SBATCH --output=slurm-logs/%j.out
+#SBATCH --error=slurm-logs/%j.err
+#SBATCH --partition=gpu_h100
+#SBATCH --signal=SIGUSR1@90
+#SBATCH --qos=gpu_h100
+#SBATCH -N 1                        # number of nodes ( or --nodes=1)
+#SBATCH --gres=gpu:1                # number of gpus
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=16
+#SBATCH --time=24:00:00             # Walltime 24h
+#SBATCH --mem-per-cpu=11G           # memory per cpu
+#SBATCH --export=none              #  to start the job with a clean environnement and source of ~/.bashrc
+#SBATCH --open-mode=append
+cd src/tamrfsits/
+conda activate .pixi/envs/default/
+cd bin
+export PYTHONOPTIMIZE=TRUE
+export TORCHINDUCTOR_CACHE_DIR=$TMPDIR/$SLURM_JOBID/
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True srun --export=ALL python ./train.py "$@" location=trex datamodule.config.num_workers=16 datamodule.config.cache_dir=$TMPDIR/$SLURM_JOBID/
+#+end_src
+
+*Note:*
+- Training is intensive and requires at least a single NVIDIA A100 GPU with 80 Go of memory.
+- The ~PYTHONOPTIMIZE=TRUE~ environment variable disables the many assert in the code, enabling faster training,
+- The ~PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True~ environment variable allows to squeeze more data in the GPU memory.
+- The ~--signal=SIGUSR1@90~ option enables auto-requeue, which allows to continue training past the lifetime of the job (24h)
+
+** Download pre-trained model and results from paper
+
+Pre-trained TAMRFSITS model as well as all results from paper are available in the following [[https://doi.org/10.5281/zenodo.15582231][*Zenodo* repository]]:
+
+#+begin_quote
+MICHEL, J. (2025). Support data for paper "Temporal Attention Multi-Resolution Fusion of Satellite Image Time-Series, applied to Landsat-8 and Sentinel-2: all bands, any time, at best spatial resolution" (1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15582231
+#+end_quote
+
+** Using the test script
+
+The [[file:bin/test.py]] script is a single entry point to perform inference and generate all the results from the paper, including the comparison with SoTA methods:
+
+#+begin_src shell
+$ ./test.py  --help
+usage: utils.py [-h] [--checkpoint CHECKPOINT] [--config CONFIG] --ts TS [TS ...] --output OUTPUT [--width WIDTH] [--seed SEED] [--device DEVICE] [--profile] [--margin MARGIN]
+                [--disable_metrics] [--patch_idx PATCH_IDX] [--subtile_width SUBTILE_WIDTH] [--show_subtile_progress]
+                [--algorithm {TAMRFSITS,DSEN2,DEEPHARMO,STAIR,SEN2LIKE,NAIVE,DSTFN,DMS}]
+                [--strategy {ALL,RANDOM,GAPS,NOHR,NOLR,FORECAST,BACKCAST,DEEPHARMO,ALL2CONJHR,CONJLRuHR2HR,CONJLR2HR,LRuHRNOCONJ2HR,HRNOCONJ2HR,ALLHR2ALLHR,RANDOM_ALL_DOYS,L3A,L3A_10D}]
+                [--mask_rate_for_random_strategy MASK_RATE_FOR_RANDOM_STRATEGY] [--forecast_doy_start FORECAST_DOY_START] [--gaps_size GAPS_SIZE] [--sen2like_hpf_mtf SEN2LIKE_HPF_MTF]
+                [--sen2like_max_masked_rate SEN2LIKE_MAX_MASKED_RATE] [--dms_tmp_dir DMS_TMP_DIR] [--dms_nb_procs DMS_NB_PROCS] [--dms_rescomp] [--write_images] [--generate_animations]
+
+Test script
+
+options:
+  -h, --help            show this help message and exit
+  --checkpoint CHECKPOINT, -cp CHECKPOINT
+                        Path to model checkpoint
+  --config CONFIG, -cfg CONFIG
+                        Path to hydra config
+  --ts TS [TS ...]      Path to time-series
+  --output OUTPUT       Path to output folder
+  --width WIDTH         Width of the square patch to infer
+  --seed SEED           Seed for sample patches selection
+  --device DEVICE       On which device to run the model
+  --profile             Print processing time information
+  --margin MARGIN       Margin for evaluation and rendering
+  --disable_metrics     Disable metrics computation
+  --patch_idx PATCH_IDX
+                        Which sub-patch to load if width is < 9900
+  --subtile_width SUBTILE_WIDTH
+                        The subtile width used for TAMRFSITS inference
+  --show_subtile_progress
+                        Show tqdm progress bar for subtile inference
+  --algorithm {TAMRFSITS,DSEN2,DEEPHARMO,STAIR,SEN2LIKE,NAIVE,DSTFN,DMS}
+                        Which algorithm to test
+  --strategy {ALL,RANDOM,GAPS,NOHR,NOLR,FORECAST,BACKCAST,DEEPHARMO,ALL2CONJHR,CONJLRuHR2HR,CONJLR2HR,LRuHRNOCONJ2HR,HRNOCONJ2HR,ALLHR2ALLHR,RANDOM_ALL_DOYS,L3A,L3A_10D}
+                        Strategy used for validation
+  --mask_rate_for_random_strategy MASK_RATE_FOR_RANDOM_STRATEGY
+                        Masking rate for the random masking strategy
+  --forecast_doy_start FORECAST_DOY_START
+                        Doy for start of forecasting in the forecast strategy
+  --gaps_size GAPS_SIZE
+                        Size of GAPS for the GAPS strategy
+  --sen2like_hpf_mtf SEN2LIKE_HPF_MTF
+                        MTF for sen2like high pass filtering
+  --sen2like_max_masked_rate SEN2LIKE_MAX_MASKED_RATE
+                        Max masked rate for sen2like
+  --dms_tmp_dir DMS_TMP_DIR
+                        Tmp directory where to write images when using DMS
+  --dms_nb_procs DMS_NB_PROCS
+                        Number of process for DMS prediction
+  --dms_rescomp         Perform residual compensation in DMS
+  --write_images        If true write predictions to disk
+  --generate_animations
+                        Generate HTML animation for prediction
+
+#+end_src
+
+A few useful options among those:
+
+- The ~--write_images~ flag will write prediction and reference TIF files in the output folder. It is useful to visualize results using Qgis for instance, but is not recommended if more than one AOI is passed to the ~--ts~ flag (it will generate a lot of data),
+- The ~--generate_animation~ flag will generate a self-contained HTML animation on top of that. Again, it is not recommended when testing multiple AOIs using the ~--ts~ flag, because of the output size and extra processing time,
+- By default, the test script will use the GPU if there is one available. To force CPU execution, use ~--device cpu~.
+- The ~TORCH_NUM_THREADS~ environment variable allows to limit the number of threads used by PyTorch when performing CPU inference.
+
+
+Here is an example of CPU execution generating predictions every 1st and 15th of each month in 2022 (similar to the L3A example in the paper), on CPU, for AOI ~31TCJ_12~:
+
+#+begin_src shell
+TORCH_NUM_THREADS=4 PYTHONOPTIMIZE=TRUE PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True ./test.py
+   --ts path_to_ls2s2/test/31TCJ_12/ # download from https://doi.org/10.5281/zenodo.15471890
+   --output  path_to_output_folder
+   --algorithm TAMRFSITS # Select TAMRFSITS algorithms
+   --checkpoint path_to_pretrained_model/tamrfsits_pretrained_2015974.ckpt # Download from https://doi.org/10.5281/zenodo.15582231
+   --config path_to_pretrained_model/hydra_config/ # Downloa from https://doi.org/10.5281/zenodo.15582231
+   --strategy L3A  # Predict everty 1st and 15th of month in 2022
+   --show_subtile_progress # Show intermediate progress
+   --write_images # Write output images
+   --disable_metrics # Disable metrics computation
+   --device cpu # Perform inference on CPU
+   --width 1650 # Limit the AOI to a 1650x1650 meter square
+   --subtile_width 165 # Process by subtiles of 165x165 pixels
+#+end_src
+
+Please beware that CPU (and GPU) computations are memory intensive. The above example peaks at about 10 Go of RAM usage.
+
+*** Reproducing the results from the paper
+
+**** Gap-Filling
+
+The following generates results for the *naive* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output gap_filling/naive --algorithm NAIVE --strategy GAPS --gaps_size 30
+#+end_src
+
+The following generates results for *TAMRFSITS*:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output gap_filling/tamrfsits --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy GAPS --gaps_size 30
+#+end_src
+
+**** Band-Sharpening
+
+The following generates results for the *Dsen2* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output band_sharpening/dsen2 --algorithm DSEN2
+#+end_src
+
+The following generates results for *TAMRFSITS*:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output gap_filling/tamrfsits --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy ALLHR2ALLHR --subtile_width 110
+#+end_src
+
+**** Spatio-Temporal Fusion
+
+The following generates results for the *STAIR* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/stair --algorithm STAIR
+#+end_src
+
+The following generates results for the *Sen2Like* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/sen2like --algorithm SEN2LIKE --sen2like_hpf_mtf: 0.1
+#+end_src
+
+The following generates results for the *DeepHarmo* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/deepharmo --algorithm DEEPHARMO
+#+end_src
+
+The following generates results for the *DSTFN* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/dstfn --algorithm DSTFN
+#+end_src
+
+The following generates results for the *TAMRFSITS* algorithm, with *only LR images*:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/tamrfsits_only_lr --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy CONJLR2HR
+#+end_src
+
+The following generates results for the *TAMRFSITS* algorithm, with *only HR images*:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/tamrfsits_only_hr --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy HRNOCONJ2HR
+#+end_src
+
+The following generates results for the *TAMRFSITS* algorithm, with *all images*:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output stf/tamrfsits_full --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy LRuHRNOCONJ2HR
+#+end_src
+
+**** Thermal Sharpening
+
+The following generates results for the *DMS* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output thermal_sharpening/dsen2 --algorithm DMS --dms_nb_procs 16 --dms_tmp_dir /tmp/ --dms_rescomp
+#+end_src
+
+The following generates results for the *TAMRFSITS* algorithm:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/* --output thermal_sharpening/tamrfsits --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy ALL
+#+end_src
+
+**** Level 3A synthesis
+
+The following allows to generate the L3A example in the Perspectives of the paper:
+#+begin_src shell
+python test.py --ts ls2s2/data/test/test/31TCJ_12/ --output l3a/ --algorithm TAMRFSITS --checkpoint tamrfsits_pretrained_2015974.ckpt --config hydra_config/ --strategy L3A --write_images
+#+end_src
+
+
+* Credits
+
+- This work was partly performed using HPC resources from GENCI-IDRIS
+  (Grant 2023-AD010114835)
+- This work was partly performed using HPC resources from CNES.
+- The authors acknowledge funding from the EvoLand project (Evolution
+  of the Copernicus Land Service portfolio, grant agreement
+  No 101082130) funded from the European Union's Horizon Europe
+  research and innovation programme.

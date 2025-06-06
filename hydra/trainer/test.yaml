@@ -1,0 +1,14 @@
+_target_: pytorch_lightning.Trainer
+accelerator: 'cpu'
+devices: 1
+max_epochs: 1
+fast_dev_run: 2
+max_steps: 10
+log_every_n_steps : 1
+val_check_interval : 0.1
+#gradient_clip_val: 0.1
+precision : 'bf16-mixed'
+deterministic: false
+detect_anomaly: false
+# profiler : 'pytorch'
+# max_steps: 10

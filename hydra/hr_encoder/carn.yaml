@@ -1,0 +1,18 @@
+name: 'carn'
+
+model:
+  _target_: tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_: tamrfsits.core.carn.CARN
+    config:
+      _target_: tamrfsits.core.carn.CARNConfig
+      nb_bands: ${datamodule.nb_hr_channels}
+      out_nb_bands: ${training_module.nb_latent_features}
+      nb_features_per_factor: 128
+      upsampling_factor: 1.0
+      nb_cascading_blocks: 1
+      groups: 4
+      shared_weights: true
+      nb_eres_blocks_per_cascading_block: 3
+      kernel_size: 3
+      leaky_relu_slope: 0.2

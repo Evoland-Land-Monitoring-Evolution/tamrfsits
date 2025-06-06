@@ -1,0 +1,3 @@
+sen2venus_dataset_path: '/work/CESBIO/projects/SentinelHR/sen2venus_fusion_2018_2020/data'
+ls2s2_dataset_path : '/work/CESBIO/projects/RELEO/datasets/ls2s2_fusion'
+output_dir : '/work/scratch/data/${oc.env:USER}/tamrfsits-results'

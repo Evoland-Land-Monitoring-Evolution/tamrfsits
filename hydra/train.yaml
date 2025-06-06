@@ -1,0 +1,59 @@
+# @package _global_
+
+# inspired from https://github.com/ashleve/lightning-hydra-template/blob/main/configs/train.yaml
+
+defaults:
+  - _self_
+  - datamodule: ls2s2_2022.yaml
+  - hr_encoder:  esrenc.yaml
+  - lr_encoder: esrenc.yaml
+  - positional_encoding: fixed.yaml
+  - decoder: esrdec.yaml
+  - location: trex.yaml
+  - training_module: spatiotemporal_fusion.yaml
+  - callbacks: default.yaml
+  - trainer: default.yaml
+  - log_dir: default.yaml
+  - loggers: default.yaml
+  - experiments: null
+# path to original working directory
+# hydra hijacks working directory by changing it to the new log directory
+# https://hydra.cc/docs/next/tutorials/basic/running_your_app/working_directory
+# original_work_dir: ${hydra:runtime.cwd}
+
+original_work_dir: ${location.output_dir}/${datamodule.name}/
+log_dir: ${original_work_dir}/log_files
+
+# Start from a checkpoint
+resume_from_checkpoint : null
+start_from_checkpoint : null
+
+# pretty print config at the start of the run using Rich library
+print_config: True
+
+# disable python warnings if they annoy you
+ignore_warnings: True
+
+# set False to skip model training
+train: True
+
+# evaluate on test set, using best model weights achieved during training
+# lightning chooses best weights based on the metric specified in checkpoint callback
+#test: False
+
+# seed for random number generators in pytorch, numpy and python.random
+seed: 42
+label: "default"
+# default name for the experiment, determines logging folder path
+# (you can overwrite this name in experiment configs)
+
+name: stf_hr${hr_encoder.name}_lr${lr_encoder.name}_${decoder.name}_${datamodule.name}
+
+# Log level
+loglevel: INFO
+
+# Use tensor cores ?
+mat_mul_precision : 'high'
+
+# Use learning rate finder ?
+use_learning_rate_finder: False

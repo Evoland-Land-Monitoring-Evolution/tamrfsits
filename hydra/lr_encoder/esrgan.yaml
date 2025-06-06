@@ -1,0 +1,14 @@
+name: 'esrgan'
+
+model:
+  _target_: tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_: tamrfsits.core.esrgan.ESRGANGenerator
+    nb_bands: ${datamodule.nb_lr_channels}
+    upsampling_factor: ${datamodule.hr_lr_resolution_ratio}
+    upsampling_base: 3
+    out_nb_bands: ${training_module.nb_latent_features}
+    latent_size: 64
+    num_basic_blocks: 3
+    growth_channels: 32
+    residual_scaling: 0.2

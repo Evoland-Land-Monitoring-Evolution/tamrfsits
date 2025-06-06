@@ -1,0 +1,62 @@
+optimization_parameters:
+  _target_: tamrfsits.tasks.base.OptimizationParameters
+  learning_rate : 0.00005
+  t_0 : 2933
+  t_mult : 2
+  weight_decay: 0.
+  loss :
+    _target_: torch.nn.SmoothL1Loss
+    beta : 0.1
+
+standardization_parameters:
+  _target_: tamrfsits.tasks.base.StandardizationParameters
+  hr_mean :   ${datamodule.hr_mean}
+  lr_mean : ${datamodule.lr_mean}
+  hr_std  : ${datamodule.hr_std}
+  lr_std : ${datamodule.lr_std}
+
+mtf_parameters:
+  _target_: tamrfsits.tasks.base.MTFParameters
+  lr_mtf : ${datamodule.lr_mtf}
+  hr_mtf : ${datamodule.hr_mtf}
+  lr_resolution : ${datamodule.lr_resolution}
+  hr_resolution : ${datamodule.hr_resolution}
+  output_resolution : ${datamodule.output_resolution}
+  learnable_mtfs: False
+
+nb_latent_features : 64
+
+parameters:
+  _target_: tamrfsits.tasks.interpolation.training_module.TemporalInterpolationTrainingModuleParameters
+  optimization: ${training_module.optimization_parameters}
+  standardization: ${training_module.standardization_parameters}
+  mtfs: ${training_module.mtf_parameters}
+  hr2lr_loss_bands: ${datamodule.hr2lr_bands}
+  lr2hr_loss_bands: ${datamodule.lr2hr_bands}
+  loss_spatial_margin: 5
+  decorrelation_loss_weight: 1.
+  min_clear_pixels_rate_for_data_loss: 0.5
+  validation_random_seed: 42
+  max_diff_for_data_loss : 2.0
+
+
+training_module:
+  _target_: tamrfsits.tasks.interpolation.training_module.TemporalInterpolationTrainingModule
+  config: ${training_module.parameters}
+  encoder:
+    _target_ : tamrfsits.components.transformer.TemporalEncoder
+    hr_encoder: ${hr_encoder.model}
+    lr_encoder: ${lr_encoder.model}
+    temporal_positional_encoder: ${positional_encoding.model}
+    token_size: ${training_module.nb_latent_features}
+    nb_heads: 4
+    nb_layers: 3
+    dim_feedforward: 256
+    sensor_token_size: 8
+  decoder:
+    _target_ : tamrfsits.components.transformer.TemporalDecoder
+    decoder : ${decoder.model}
+    temporal_positional_encoder: ${positional_encoding.model}
+    token_size: ${training_module.nb_latent_features}
+    nb_heads: 4
+    sensor_token_size: 8

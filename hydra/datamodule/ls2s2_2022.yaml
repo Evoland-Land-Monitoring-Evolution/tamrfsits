@@ -1,0 +1,155 @@
+name: 'ls2s2'
+nb_hr_channels : 10
+nb_lr_channels : 8
+total_nb_channels : 18
+hr_lr_resolution_ratio : 3
+hr_mean: [0.07362382, 0.09873312, 0.10814488, 0.14970998, 0.2355543,  0.26680005, 0.28025445, 0.28828138, 0.2216299,  0.14820623]
+#hr_mean:[0.06560737, 0.09242173, 0.10630136, 0.14338367, 0.21444039, 0.24194412, 0.25421807, 0.2615512,  0.22566018, 0.15780544]
+hr_std: [0.10642567, 0.10443379, 0.11574283, 0.11321685, 0.11052303, 0.1171153, 0.12189993, 0.11818925, 0.10420649, 0.0853072 ]
+#hr_std:[0.05859785, 0.06710951, 0.08773007, 0.08859552, 0.09931506, 0.11228809,0.11881511, 0.11910624, 0.12038214, 0.09805008]
+lr_mean: [0.05113843, 0.06119436, 0.09155057, 0.10012265, 0.28283224, 0.21124776, 0.13495721, 0.29776597]
+#lr_mean: [0.04257746, 0.05383928, 0.08790451, 0.09931757, 0.28538725, 0.22470161, 0.14637959, 0.3003393 ]
+lr_std: [0.10639405, 0.10818487, 0.10420593, 0.11348532, 0.11900955, 0.09519453, 0.07544196, 0.02458386]
+#lr_std:  [0.0305269, 0.03661568, 0.04741948, 0.06811672, 0.09254888, 0.09789681, 0.08006037, 0.01326116]
+hr_mtf : [1., 1., 1., 0.3, 0.3, 0.3, 1., 0.3, 0.3, 0.3]
+hr_resolution : [10., 10., 10., 20., 20., 20., 10., 20., 20., 20.]
+lr_mtf : [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.2]
+lr_resolution : [30., 30., 30., 30., 30., 30., 30., 90.]
+output_resolution: 10.
+hr2lr_bands: [0, 1, 2, 3, 4, 5, 6]
+lr2hr_bands: null
+validation_indices: [1077, 283, 1355, 1043, 512, 671, 1906, 1560, 367, 1284, 111, 1345, 1992, 430, 2003, 1506, 931, 484, 1549, 1402, 427, 2085, 1298, 910, 1378, 2051, 1967, 1143, 1001, 1750, 372, 234, 1017, 1877, 1462, 1410, 605, 423, 1807, 566, 1385, 656, 980, 384, 290, 271, 1089, 826, 376, 1154, 995, 530, 2000, 662, 1423, 172, 1848, 1134, 1167, 927, 1999, 83, 793, 1627, 216, 827, 726, 98, 243, 983, 1272, 633, 99, 1646, 64, 2008, 1579, 1740, 1988, 21, 1479, 732, 1525, 749, 1612, 1851, 673, 787, 51, 809, 760, 434, 1547, 1744, 1409, 688, 950, 1136, 1245, 799, 1556, 784, 1316, 63, 50, 1819]
+config:
+  _target_ : tamrfsits.data.joint_sits_datamodule.JointSITSDataModuleConfig
+  training_sits:
+    - ${location.ls2s2_dataset_path}/data/train/30SUF_21
+    - ${location.ls2s2_dataset_path}/data/train/30SUH_17
+    - ${location.ls2s2_dataset_path}/data/train/30SVF_21
+    - ${location.ls2s2_dataset_path}/data/train/30SVG_25
+    - ${location.ls2s2_dataset_path}/data/train/31TEJ_60
+    - ${location.ls2s2_dataset_path}/data/train/31TEK_35
+    - ${location.ls2s2_dataset_path}/data/train/31UER_57
+    - ${location.ls2s2_dataset_path}/data/train/31UFR_17
+    - ${location.ls2s2_dataset_path}/data/train/32TNT_21
+    - ${location.ls2s2_dataset_path}/data/train/30SUF_12
+    - ${location.ls2s2_dataset_path}/data/train/30SUG_12
+    - ${location.ls2s2_dataset_path}/data/train/30SUH_12
+    - ${location.ls2s2_dataset_path}/data/train/30SVF_12
+    - ${location.ls2s2_dataset_path}/data/train/30SVG_12
+    - ${location.ls2s2_dataset_path}/data/train/30SVH_12
+    - ${location.ls2s2_dataset_path}/data/train/30SWF_12
+    - ${location.ls2s2_dataset_path}/data/train/31TCK_12
+    - ${location.ls2s2_dataset_path}/data/train/31TDJ_12
+    - ${location.ls2s2_dataset_path}/data/train/31TDK_12
+    - ${location.ls2s2_dataset_path}/data/train/31TEJ_12
+    - ${location.ls2s2_dataset_path}/data/train/31TEK_12
+    - ${location.ls2s2_dataset_path}/data/train/31TFK_12
+    - ${location.ls2s2_dataset_path}/data/train/31UER_12
+    - ${location.ls2s2_dataset_path}/data/train/31UFR_12
+    - ${location.ls2s2_dataset_path}/data/train/32TNT_12
+    - ${location.ls2s2_dataset_path}/data/train/32UNA_12
+    - ${location.ls2s2_dataset_path}/data/train/32UNU_12
+    - ${location.ls2s2_dataset_path}/data/train/32UNV_12
+    - ${location.ls2s2_dataset_path}/data/train/32UPA_12
+    - ${location.ls2s2_dataset_path}/data/train/32UPV_12
+    - ${location.ls2s2_dataset_path}/data/train/33VVK_12
+    - ${location.ls2s2_dataset_path}/data/train/33VWK_12
+    - ${location.ls2s2_dataset_path}/data/train/34TEQ_12
+    - ${location.ls2s2_dataset_path}/data/train/34TER_12
+    - ${location.ls2s2_dataset_path}/data/train/34TES_12
+    - ${location.ls2s2_dataset_path}/data/train/22NBK_24
+    - ${location.ls2s2_dataset_path}/data/train/30SUF_24
+    - ${location.ls2s2_dataset_path}/data/train/30SUG_24
+    - ${location.ls2s2_dataset_path}/data/train/30SUH_24
+    - ${location.ls2s2_dataset_path}/data/train/30SVG_24
+    - ${location.ls2s2_dataset_path}/data/train/30SVH_24
+    - ${location.ls2s2_dataset_path}/data/train/31TCK_24
+    - ${location.ls2s2_dataset_path}/data/train/31TDJ_24
+    - ${location.ls2s2_dataset_path}/data/train/31TDK_24
+    - ${location.ls2s2_dataset_path}/data/train/31TEJ_24
+    - ${location.ls2s2_dataset_path}/data/train/31TEK_24
+    - ${location.ls2s2_dataset_path}/data/train/31TFK_24
+    - ${location.ls2s2_dataset_path}/data/train/31UER_24
+    - ${location.ls2s2_dataset_path}/data/train/31UFR_24
+    - ${location.ls2s2_dataset_path}/data/train/32TNT_24
+    - ${location.ls2s2_dataset_path}/data/train/32UNA_24
+    - ${location.ls2s2_dataset_path}/data/train/32UNU_24
+    - ${location.ls2s2_dataset_path}/data/train/32UNV_24
+    - ${location.ls2s2_dataset_path}/data/train/32UPA_24
+    - ${location.ls2s2_dataset_path}/data/train/32UPV_24
+    - ${location.ls2s2_dataset_path}/data/train/33VVK_24
+    - ${location.ls2s2_dataset_path}/data/train/33VWK_24
+    - ${location.ls2s2_dataset_path}/data/train/34TEQ_24
+    - ${location.ls2s2_dataset_path}/data/train/34TER_24
+    - ${location.ls2s2_dataset_path}/data/train/34TES_24
+
+  testing_sits:
+    - ${location.ls2s2_dataset_path}/data/test/32UMV_27
+    - ${location.ls2s2_dataset_path}/data/test/33VVJ_42
+    - ${location.ls2s2_dataset_path}/data/test/34TFR_35
+    - ${location.ls2s2_dataset_path}/data/test/22NBL_12
+    - ${location.ls2s2_dataset_path}/data/test/22NCK_12
+    #- ${location.ls2s2_dataset_path}/data/test/30NUL_12
+    - ${location.ls2s2_dataset_path}/data/test/30NUM_12
+    - ${location.ls2s2_dataset_path}/data/test/30NVL_12
+    - ${location.ls2s2_dataset_path}/data/test/30NVM_12
+    - ${location.ls2s2_dataset_path}/data/test/30SWG_12
+    - ${location.ls2s2_dataset_path}/data/test/30SWH_12
+    - ${location.ls2s2_dataset_path}/data/test/31TCJ_12
+    - ${location.ls2s2_dataset_path}/data/test/31TFJ_12
+    - ${location.ls2s2_dataset_path}/data/test/31UES_12
+    - ${location.ls2s2_dataset_path}/data/test/31UFS_12
+    - ${location.ls2s2_dataset_path}/data/test/32TPT_12
+    - ${location.ls2s2_dataset_path}/data/test/32UMU_12
+    - ${location.ls2s2_dataset_path}/data/test/32UMV_12
+    - ${location.ls2s2_dataset_path}/data/test/32UPU_12
+    - ${location.ls2s2_dataset_path}/data/test/33VVJ_12
+    - ${location.ls2s2_dataset_path}/data/test/33VWJ_12
+    - ${location.ls2s2_dataset_path}/data/test/34TFQ_12
+    - ${location.ls2s2_dataset_path}/data/test/34TFR_12
+    - ${location.ls2s2_dataset_path}/data/test/34TFS_12
+    - ${location.ls2s2_dataset_path}/data/test/22NBL_24
+    #- ${location.ls2s2_dataset_path}/data/test/22NCK_24
+    #- ${location.ls2s2_dataset_path}/data/test/30NUL_24
+    - ${location.ls2s2_dataset_path}/data/test/30NUM_24
+    #- ${location.ls2s2_dataset_path}/data/test/30NVL_24
+    - ${location.ls2s2_dataset_path}/data/test/30NVM_24
+    - ${location.ls2s2_dataset_path}/data/test/30SWG_24
+    - ${location.ls2s2_dataset_path}/data/test/30SWH_24
+    - ${location.ls2s2_dataset_path}/data/test/31TCJ_24
+    - ${location.ls2s2_dataset_path}/data/test/31TFJ_24
+    - ${location.ls2s2_dataset_path}/data/test/31UES_24
+    - ${location.ls2s2_dataset_path}/data/test/31UFS_24
+    - ${location.ls2s2_dataset_path}/data/test/32TPT_24
+    - ${location.ls2s2_dataset_path}/data/test/32UMU_24
+    - ${location.ls2s2_dataset_path}/data/test/32UMV_24
+    - ${location.ls2s2_dataset_path}/data/test/32UPU_24
+    - ${location.ls2s2_dataset_path}/data/test/33VVJ_24
+    - ${location.ls2s2_dataset_path}/data/test/33VWJ_24
+    - ${location.ls2s2_dataset_path}/data/test/34TFQ_24
+    - ${location.ls2s2_dataset_path}/data/test/34TFR_24
+    - ${location.ls2s2_dataset_path}/data/test/34TFS_24
+  validation_indices: ${datamodule.validation_indices}
+  patch_size: 1650
+  lr_sensor : 'landsat'
+  hr_sensor : 'sentinel2'
+  lr_resolution : 30.
+  hr_resolution : 10.
+  mtf_for_downsampling: 0.3
+  dt_orig : 2022.01.01
+  batch_size : 1
+  testing_validation_batch_size : 1
+  validation_ratio : 0.05
+  train_ratio : 0.95
+  num_workers : 16
+  prefetch_factor : 1
+  time_slices_in_days : 365
+  min_nb_dates : 5
+  max_nb_dates: 50
+  conjunctions_only: false
+  cache_dir : null
+  random_reduce_rate: null
+
+data_module:
+  _target_ : tamrfsits.data.joint_sits_datamodule.JointSITSDataModule
+  config : ${datamodule.config}

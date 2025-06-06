@@ -1,0 +1,10 @@
+name: 'unet'
+
+model:
+  _target_ : tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_ : tamrfsits.core.unet.SRUNet
+    in_channels: ${datamodule.nb_lr_channels}
+    out_channels : ${training_module.nb_latent_features}
+  upsampling_factor: ${datamodule.hr_lr_resolution_ratio}
+  early_upsampling: True

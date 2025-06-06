@@ -1,0 +1,13 @@
+name: 'esrenc'
+
+model:
+  _target_: tamrfsits.components.datewise.DateWiseSITSModule
+  model:
+    _target_: tamrfsits.core.esrgan.ESRSpatialEncoder
+    in_nb_bands: ${datamodule.nb_hr_channels}
+    upsampling_factor: 1
+    latent_size: ${training_module.nb_latent_features}
+    num_basic_blocks: 1
+    growth_channels: 32
+    residual_scaling: 0.2
+    upsampling_mode : "pixel_shuffle"
