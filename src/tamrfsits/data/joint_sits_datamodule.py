@@ -113,7 +113,7 @@ class JointSITSDataModule(pl.LightningDataModule):
         if config.validation_indices is not None:
             logging.info(
                 "Using a fixed subset of training set for validation:\
-                {}",
+                %s",
                 config.validation_indices,
             )
             all_indices = list(range(len(remaining_dataset)))
@@ -149,11 +149,11 @@ class JointSITSDataModule(pl.LightningDataModule):
                     remaining_dataset, [config.train_ratio, config.validation_ratio]
                 )
             logging.info(
-                "Generated indices for validation: {}", self.validation_dataset.indices
+                "Generated indices for validation: %s", self.validation_dataset.indices
             )
-        logging.info("{} training patches available", len(self.training_dataset))
-        logging.info("{} validation patches available", len(self.validation_dataset))
-        logging.info("{} testing patches available", len(self.testing_dataset))
+        logging.info("%s training patches available", len(self.training_dataset))
+        logging.info("%s validation patches available", len(self.validation_dataset))
+        logging.info("%s testing patches available", len(self.testing_dataset))
 
     def train_dataloader(self):
         """

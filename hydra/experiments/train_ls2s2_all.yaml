@@ -1,0 +1,6 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: ls2s2_all.yaml
+  - override /training_module: spatiotemporal_fusion.yaml
+  - override /trainer: default.yaml

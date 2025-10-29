@@ -420,6 +420,4 @@ def find_closest_in_sits(
     )
 
     out_data = source_sits.data.gather(1, first_min_idx)
-    print(target_doy)
-    print(out_doys)
     return MonoModalSITS(out_data, out_doys, out_mask)

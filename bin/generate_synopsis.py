@@ -60,8 +60,8 @@ def generate_synopsis(
         print(f"index file {index_file} has no valid images")
 
     # Number of rows
-    nb_rows = int(np.ceil(len(df) / nb_img_per_rows))
-    nb_cols = min(nb_img_per_rows, len(df))
+    nb_rows = max(int(np.ceil(len(df) / nb_img_per_rows)), 1)
+    nb_cols = max(min(nb_img_per_rows, len(df)), 1)
     base_size = 2.5
     figsize = (nb_cols * base_size, nb_rows * base_size)
 

@@ -68,13 +68,7 @@ class SITSTransformerEncoder(torch.nn.Module):
             ),
             num_layers=nb_layers,
         )
-
-        # Resolves RuntimeError: CUDA error: invalid configuration argument
-        # see https://stackoverflow.com/questions/77343471/ ...
-        # ... pytorch-cuda-error-invalid-configuration-argument#77373170
-        torch.backends.cuda.enable_mem_efficient_sdp(False)
-        torch.backends.cuda.enable_flash_sdp(False)
-        torch.backends.cuda.enable_math_sdp(True)
+        self.transformer_encoder.compile(dynamic=True)
 
     def forward(self, input_sits: MonoModalSITS) -> MonoModalSITS:
         """

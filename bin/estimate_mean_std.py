@@ -47,8 +47,12 @@ def main(config: DictConfig):
 
     data_iter = iter(data_loader)
 
-    lr_samples_list: list[torch.Tensor] = []
-    hr_samples_list: list[torch.Tensor] = []
+    hr_sum_tensor: torch.Tensor | None = None
+    hr_squared_sum_tensor: torch.Tensor | None = None
+    nb_hr_samples = 0
+    lr_sum_tensor: torch.Tensor | None = None
+    lr_squared_sum_tensor: torch.Tensor | None = None
+    nb_lr_samples = 0
 
     for _ in tqdm(range(nb_batch), total=nb_batch, desc="Sampling data"):
         # Get one sample
@@ -58,26 +62,45 @@ def main(config: DictConfig):
         lr_sits, hr_sits = batch
         lr_data = rearrange(lr_sits.data, "b t c w h -> (b t w h) c")
         lr_mask = rearrange(lr_sits.mask, "b t w h -> (b t w h)")
-        lr_samples_list.append(lr_data[~lr_mask, :])
+        lr_data = lr_data[~lr_mask, :] / 10000.0
+        if lr_data.shape[0]:
+            if lr_sum_tensor is None:
+                lr_sum_tensor = lr_data.sum(dim=0)
+                lr_squared_sum_tensor = (lr_data.shape[0] - 1) * (
+                    lr_data.std(dim=0) ** 2
+                )
+            else:
+                lr_sum_tensor += lr_data.sum(dim=0)
+                lr_squared_sum_tensor += (lr_data.shape[0] - 1) * (
+                    lr_data.std(dim=0) ** 2
+                )
+            nb_lr_samples += lr_data.shape[0]
+
         hr_data = rearrange(hr_sits.data, "b t c w h -> (b t w h) c")
         hr_mask = rearrange(hr_sits.mask, "b t w h -> (b t w h)")
-        hr_samples_list.append(hr_data[~hr_mask, :])
+        hr_data = hr_data[~hr_mask, :] / 10000.0
+        if hr_data.shape:
+            if hr_sum_tensor is None:
+                hr_sum_tensor = hr_data.sum(dim=0)
+                hr_squared_sum_tensor = (hr_data.shape[0] - 1) * (
+                    hr_data.std(dim=0) ** 2
+                )
+            else:
+                hr_sum_tensor += hr_data.sum(dim=0)
+                hr_squared_sum_tensor += (hr_data.shape[0] - 1) * (
+                    hr_data.std(dim=0) ** 2
+                )
+            nb_hr_samples += hr_data.shape[0]
 
-    lr_samples = torch.cat(lr_samples_list)
-    hr_samples = torch.cat(hr_samples_list)
+    lr_mean = lr_sum_tensor / nb_lr_samples
+    hr_mean = hr_sum_tensor / nb_hr_samples
+    lr_std = torch.sqrt(lr_squared_sum_tensor / (nb_lr_samples - nb_batch))
+    hr_std = torch.sqrt(hr_squared_sum_tensor / (nb_hr_samples - nb_batch))
 
-    lr_samples = lr_samples / 10000.0
-    hr_samples = hr_samples / 10000.0
-
-    hr_mean = hr_samples.mean(dim=0).numpy()
-    lr_mean = lr_samples.mean(dim=0).numpy()
-    hr_std = hr_samples.std(dim=0).numpy()
-    lr_std = lr_samples.std(dim=0).numpy()
-
-    print(f"LR number of samples: {lr_samples.shape[0]}")
+    print(f"LR number of samples: {nb_lr_samples}")
     print(f"mean: {lr_mean}")
     print(f"std: {lr_std}")
-    print(f"HR number of samples: {hr_samples.shape[0]=}")
+    print(f"HR number of samples: {nb_hr_samples}")
     print(f"mean: {hr_mean}")
     print(f"std: {hr_std}")
 

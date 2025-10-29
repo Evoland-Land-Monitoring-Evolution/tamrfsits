@@ -41,6 +41,7 @@ class OptimizationParameters:
     loss: torch.nn.Module
     weight_decay: float = 0.0
     nb_warmup_steps: int = 0
+    minimum_learning_rate: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -697,27 +698,6 @@ class BaseTrainingModule(pl.LightningModule):
             torch.manual_seed(42)
             return self.generic_step(batch_data, context="test")
 
-    def on_after_backward(self):
-        """
-        Report statistics on memory if cuda is used
-        """
-        if self.hr_mean.is_cuda:
-            memory_stats = torch.cuda.memory_stats(device=self.hr_mean.device)
-            what = "allocated_bytes.all.peak"
-            self.log(
-                "gpu_stats/peak_memory_gb",
-                memory_stats[what] / (1024**3),
-            )
-            self.log(
-                "gpu_stats/kernel_utilization_percent",
-                torch.cuda.utilization(),
-            )
-            self.log(
-                "gpu_stats/memory_utilization_percent",
-                torch.cuda.memory_usage(),
-            )
-            torch.cuda.reset_peak_memory_stats()
-
     def configure_optimizers(self):
         """
         Optimizer and scheduler
@@ -744,6 +724,7 @@ class BaseTrainingModule(pl.LightningModule):
                             optimizer,
                             T_0=self.config.optimization.t_0,
                             T_mult=self.config.optimization.t_mult,
+                            eta_min=self.config.optimization.minimum_learning_rate,
                         ),
                     ],
                     milestones=[self.config.optimization.nb_warmup_steps],
@@ -754,6 +735,7 @@ class BaseTrainingModule(pl.LightningModule):
                 optimizer,
                 T_0=self.config.optimization.t_0,
                 T_mult=self.config.optimization.t_mult,
+                eta_min=self.config.optimization.minimum_learning_rate,
             )
 
         # pylint: disable=use-tuple-over-list

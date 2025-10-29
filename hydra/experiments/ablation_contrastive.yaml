@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - override /training_module: spatiotemporal_fusion.yaml
+  - override /datamodule: ls2s2_all.yaml
+
+training_module:
+  parameters:
+    use_triplet_loss: False
+
+label: "ablation_contrastive"

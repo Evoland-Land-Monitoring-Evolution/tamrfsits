@@ -1,0 +1,360 @@
+name: 'ls2s2all'
+nb_hr_channels : 10
+nb_lr_channels : 8
+total_nb_channels : 18
+hr_lr_resolution_ratio : 3
+hr_mean: [0.1353, 0.1591, 0.1793, 0.2150, 0.2714, 0.2915, 0.3019, 0.3066, 0.2431, 0.1839]
+hr_std: [0.1461, 0.1410, 0.1455, 0.1419, 0.1313, 0.1271, 0.1304, 0.1206, 0.0700, 0.0596]
+lr_mean: [0.1298, 0.1409, 0.1681, 0.1868, 0.3156, 0.2398, 0.1757, 0.2999]
+lr_std: [0.1808, 0.1803, 0.1663, 0.1678, 0.1391, 0.0670, 0.0556, 0.0124]
+hr_mtf : [1., 1., 1., 0.3, 0.3, 0.3, 1., 0.3, 0.3, 0.3]
+hr_resolution : [10., 10., 10., 20., 20., 20., 10., 20., 20., 20.]
+lr_mtf : [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.2]
+lr_resolution : [30., 30., 30., 30., 30., 30., 30., 90.]
+output_resolution: 10.
+hr2lr_bands: [0, 1, 2, 3, 4, 5, 6]
+lr2hr_bands: null
+validation_indices: [4073, 369, 803, 2444, 3615, 1732, 76, 3101, 3722, 3953, 2692, 2658, 3480, 2538, 4201, 2988, 3946, 911, 2257, 3884, 74, 4778, 4462, 4628, 1624, 1830, 661, 653, 3094, 1345, 3055, 1844, 3022, 2840, 3156, 3993, 4031, 3763, 4193, 2709, 271, 209, 2808, 3968, 4207, 2788, 2085, 2614, 3266, 4544, 1372, 1784, 4359, 3783, 3137, 1999, 3686, 2356, 3354, 1603, 2440, 1332, 4014, 1922, 700, 667, 338, 4360, 4705, 2610, 4606, 275, 2670, 4786, 269, 3046, 2991, 2741, 1968, 2510, 1762, 1987, 1453, 4168, 1062, 643, 649, 201, 2815, 1739, 3587, 2390, 1638, 2234, 4783, 915, 3318, 2004, 185, 4218, 2145, 3194, 778, 1337, 3413, 1288, 5, 2063, 3569, 3932, 4540, 4213, 3837, 1310, 3125, 3403, 2423, 4581, 1385, 784, 4358, 378, 1068, 4626, 2857, 2020, 2860, 1522, 3105, 3152, 273, 3328, 1169, 1064, 2013, 3829, 4154, 1937, 228, 4411, 4184, 3673, 189, 1780, 613, 1952, 25, 1051, 3789, 671, 581, 339, 1286, 832, 514, 274, 688, 2904, 223, 3355, 3539, 933, 4627, 2430, 3185, 3922, 3756, 4557, 4674, 3663, 3915, 4363, 1756, 1805, 3231, 117, 3955, 1549, 2641, 3743, 3820, 3340, 3921, 2325, 1343, 602, 2011, 2753, 3892, 1846, 3658, 3219, 1174, 3249, 1216, 2264, 4188, 415, 3378, 328, 2082, 4115, 4654, 2665, 4570, 1373, 4046, 3801, 2148, 1116, 4371, 1586, 3086, 2243, 270, 4329, 2323, 142, 4451, 1394, 51, 2501, 755, 1895, 1887, 1752, 1370, 4594, 2364, 102, 4632, 2541, 4542, 4160, 853, 1036, 3107, 1744, 2041]
+config:
+  _target_ : tamrfsits.data.joint_sits_datamodule.JointSITSDataModuleConfig
+  training_sits:
+    - ${location.ls2s2_dataset_path}/data/train/30SUF_21
+    - ${location.ls2s2_dataset_path}/data/train/30SUH_17
+    - ${location.ls2s2_dataset_path}/data/train/30SVF_21
+    - ${location.ls2s2_dataset_path}/data/train/30SVG_25
+    - ${location.ls2s2_dataset_path}/data/train/31TEJ_60
+    - ${location.ls2s2_dataset_path}/data/train/31TEK_35
+    - ${location.ls2s2_dataset_path}/data/train/31UER_57
+    - ${location.ls2s2_dataset_path}/data/train/31UFR_17
+    - ${location.ls2s2_dataset_path}/data/train/32TNT_21
+    - ${location.ls2s2_dataset_path}/data/train/30SUF_12
+    - ${location.ls2s2_dataset_path}/data/train/30SUG_12
+    - ${location.ls2s2_dataset_path}/data/train/30SUH_12
+    - ${location.ls2s2_dataset_path}/data/train/30SVF_12
+    - ${location.ls2s2_dataset_path}/data/train/30SVG_12
+    - ${location.ls2s2_dataset_path}/data/train/30SVH_12
+    - ${location.ls2s2_dataset_path}/data/train/30SWF_12
+    - ${location.ls2s2_dataset_path}/data/train/31TCK_12
+    - ${location.ls2s2_dataset_path}/data/train/31TDJ_12
+    - ${location.ls2s2_dataset_path}/data/train/31TDK_12
+    - ${location.ls2s2_dataset_path}/data/train/31TEJ_12
+    - ${location.ls2s2_dataset_path}/data/train/31TEK_12
+    - ${location.ls2s2_dataset_path}/data/train/31TFK_12
+    - ${location.ls2s2_dataset_path}/data/train/31UER_12
+    - ${location.ls2s2_dataset_path}/data/train/31UFR_12
+    - ${location.ls2s2_dataset_path}/data/train/32TNT_12
+    - ${location.ls2s2_dataset_path}/data/train/32UNA_12
+    - ${location.ls2s2_dataset_path}/data/train/32UNU_12
+    - ${location.ls2s2_dataset_path}/data/train/32UNV_12
+    - ${location.ls2s2_dataset_path}/data/train/32UPA_12
+    - ${location.ls2s2_dataset_path}/data/train/32UPV_12
+    - ${location.ls2s2_dataset_path}/data/train/33VVK_12
+    - ${location.ls2s2_dataset_path}/data/train/33VWK_12
+    - ${location.ls2s2_dataset_path}/data/train/34TEQ_12
+    - ${location.ls2s2_dataset_path}/data/train/34TER_12
+    - ${location.ls2s2_dataset_path}/data/train/34TES_12
+    - ${location.ls2s2_dataset_path}/data/train/22NBK_24
+    - ${location.ls2s2_dataset_path}/data/train/30SUF_24
+    - ${location.ls2s2_dataset_path}/data/train/30SUG_24
+    - ${location.ls2s2_dataset_path}/data/train/30SUH_24
+    - ${location.ls2s2_dataset_path}/data/train/30SVG_24
+    - ${location.ls2s2_dataset_path}/data/train/30SVH_24
+    - ${location.ls2s2_dataset_path}/data/train/31TCK_24
+    - ${location.ls2s2_dataset_path}/data/train/31TDJ_24
+    - ${location.ls2s2_dataset_path}/data/train/31TDK_24
+    - ${location.ls2s2_dataset_path}/data/train/31TEJ_24
+    - ${location.ls2s2_dataset_path}/data/train/31TEK_24
+    - ${location.ls2s2_dataset_path}/data/train/31TFK_24
+    - ${location.ls2s2_dataset_path}/data/train/31UER_24
+    - ${location.ls2s2_dataset_path}/data/train/31UFR_24
+    - ${location.ls2s2_dataset_path}/data/train/32TNT_24
+    - ${location.ls2s2_dataset_path}/data/train/32UNA_24
+    - ${location.ls2s2_dataset_path}/data/train/32UNU_24
+    - ${location.ls2s2_dataset_path}/data/train/32UNV_24
+    - ${location.ls2s2_dataset_path}/data/train/32UPA_24
+    - ${location.ls2s2_dataset_path}/data/train/32UPV_24
+    - ${location.ls2s2_dataset_path}/data/train/33VVK_24
+    - ${location.ls2s2_dataset_path}/data/train/33VWK_24
+    - ${location.ls2s2_dataset_path}/data/train/34TEQ_24
+    - ${location.ls2s2_dataset_path}/data/train/34TER_24
+    - ${location.ls2s2_dataset_path}/data/train/34TES_24
+    - ${location.ls2s2wwmy_dataset_path}/data/train/04WDS_74
+    - ${location.ls2s2wwmy_dataset_path}/data/train/09VXL_90
+    - ${location.ls2s2wwmy_dataset_path}/data/train/11UQQ_34
+    - ${location.ls2s2wwmy_dataset_path}/data/train/11VMH_72
+    - ${location.ls2s2wwmy_dataset_path}/data/train/11VPE_94
+    - ${location.ls2s2wwmy_dataset_path}/data/train/12TWK_0
+    - ${location.ls2s2wwmy_dataset_path}/data/train/12UVC_83
+    - ${location.ls2s2wwmy_dataset_path}/data/train/13TGJ_8
+    - ${location.ls2s2wwmy_dataset_path}/data/train/13UEU_85
+    - ${location.ls2s2wwmy_dataset_path}/data/train/13VDL_15
+    - ${location.ls2s2wwmy_dataset_path}/data/train/14TMP_11
+    - ${location.ls2s2wwmy_dataset_path}/data/train/15RYQ_55
+    - ${location.ls2s2wwmy_dataset_path}/data/train/15STD_27
+    - ${location.ls2s2wwmy_dataset_path}/data/train/15SUV_88
+    - ${location.ls2s2wwmy_dataset_path}/data/train/15WVQ_26
+    - ${location.ls2s2wwmy_dataset_path}/data/train/16SEJ_91
+    - ${location.ls2s2wwmy_dataset_path}/data/train/16TEM_44
+    - ${location.ls2s2wwmy_dataset_path}/data/train/16TEP_85
+    - ${location.ls2s2wwmy_dataset_path}/data/train/16VFR_5
+    - ${location.ls2s2wwmy_dataset_path}/data/train/16XEL_36
+    - ${location.ls2s2wwmy_dataset_path}/data/train/17SQB_13
+    - ${location.ls2s2wwmy_dataset_path}/data/train/17ULP_98
+    - ${location.ls2s2wwmy_dataset_path}/data/train/18FWM_16
+    - ${location.ls2s2wwmy_dataset_path}/data/train/18GXV_76
+    - ${location.ls2s2wwmy_dataset_path}/data/train/18MTV_38
+    - ${location.ls2s2wwmy_dataset_path}/data/train/19JDL_32
+    - ${location.ls2s2wwmy_dataset_path}/data/train/19JFK_79
+    - ${location.ls2s2wwmy_dataset_path}/data/train/19MDS_45
+    - ${location.ls2s2wwmy_dataset_path}/data/train/19NDJ_63
+    - ${location.ls2s2wwmy_dataset_path}/data/train/19TFL_17
+    - ${location.ls2s2wwmy_dataset_path}/data/train/19WDQ_17
+    - ${location.ls2s2wwmy_dataset_path}/data/train/20GKU_53
+    - ${location.ls2s2wwmy_dataset_path}/data/train/20HLB_85
+    - ${location.ls2s2wwmy_dataset_path}/data/train/20HNG_38
+    - ${location.ls2s2wwmy_dataset_path}/data/train/21XWJ_74
+    - ${location.ls2s2wwmy_dataset_path}/data/train/22KDV_8
+    - ${location.ls2s2wwmy_dataset_path}/data/train/22KEA_14
+    - ${location.ls2s2wwmy_dataset_path}/data/train/22MBB_46
+    - ${location.ls2s2wwmy_dataset_path}/data/train/22MDA_90
+    - ${location.ls2s2wwmy_dataset_path}/data/train/22MFT_61
+    - ${location.ls2s2wwmy_dataset_path}/data/train/22WEV_74
+    - ${location.ls2s2wwmy_dataset_path}/data/train/23LKD_38
+    - ${location.ls2s2wwmy_dataset_path}/data/train/23LMC_20
+    - ${location.ls2s2wwmy_dataset_path}/data/train/23MKP_96
+    - ${location.ls2s2wwmy_dataset_path}/data/train/23WNU_22
+    - ${location.ls2s2wwmy_dataset_path}/data/train/26XNM_79
+    - ${location.ls2s2wwmy_dataset_path}/data/train/28WDT_53
+    - ${location.ls2s2wwmy_dataset_path}/data/train/30PVU_65
+    - ${location.ls2s2wwmy_dataset_path}/data/train/31PBN_37
+    - ${location.ls2s2wwmy_dataset_path}/data/train/31TEK_64
+    - ${location.ls2s2wwmy_dataset_path}/data/train/31UES_18
+    - ${location.ls2s2wwmy_dataset_path}/data/train/32PMQ_90
+    - ${location.ls2s2wwmy_dataset_path}/data/train/32RMN_26
+    - ${location.ls2s2wwmy_dataset_path}/data/train/32TNT_19
+    - ${location.ls2s2wwmy_dataset_path}/data/train/32ULD_21
+    - ${location.ls2s2wwmy_dataset_path}/data/train/33KTV_49
+    - ${location.ls2s2wwmy_dataset_path}/data/train/33KVB_0
+    - ${location.ls2s2wwmy_dataset_path}/data/train/33NWD_91
+    - ${location.ls2s2wwmy_dataset_path}/data/train/33VUL_63
+    - ${location.ls2s2wwmy_dataset_path}/data/train/34HFK_99
+    - ${location.ls2s2wwmy_dataset_path}/data/train/34JFP_31
+    - ${location.ls2s2wwmy_dataset_path}/data/train/34KBC_31
+    - ${location.ls2s2wwmy_dataset_path}/data/train/34KBV_86
+    - ${location.ls2s2wwmy_dataset_path}/data/train/34LFH_41
+    - ${location.ls2s2wwmy_dataset_path}/data/train/34TFT_79
+    - ${location.ls2s2wwmy_dataset_path}/data/train/35KLS_7
+    - ${location.ls2s2wwmy_dataset_path}/data/train/35KMS_4
+    - ${location.ls2s2wwmy_dataset_path}/data/train/35LLE_90
+#    - ${location.ls2s2wwmy_dataset_path}/data/train/35LRF_50 No landsat images
+    - ${location.ls2s2wwmy_dataset_path}/data/train/35RKQ_86
+    - ${location.ls2s2wwmy_dataset_path}/data/train/36MVB_78
+    - ${location.ls2s2wwmy_dataset_path}/data/train/36VUR_23
+    - ${location.ls2s2wwmy_dataset_path}/data/train/36VXQ_19
+    - ${location.ls2s2wwmy_dataset_path}/data/train/37LBF_7
+    - ${location.ls2s2wwmy_dataset_path}/data/train/37NBG_1
+    - ${location.ls2s2wwmy_dataset_path}/data/train/37UDT_98
+#    - ${location.ls2s2wwmy_dataset_path}/data/train/37WDS_13 No landsat images
+    - ${location.ls2s2wwmy_dataset_path}/data/train/38UMB_61
+    - ${location.ls2s2wwmy_dataset_path}/data/train/39TUK_66
+    - ${location.ls2s2wwmy_dataset_path}/data/train/40SEF_82
+    - ${location.ls2s2wwmy_dataset_path}/data/train/40SGB_67
+    - ${location.ls2s2wwmy_dataset_path}/data/train/40TFS_88
+    - ${location.ls2s2wwmy_dataset_path}/data/train/40VDN_20
+    - ${location.ls2s2wwmy_dataset_path}/data/train/40VEL_29
+    - ${location.ls2s2wwmy_dataset_path}/data/train/40VFK_30
+    - ${location.ls2s2wwmy_dataset_path}/data/train/41SPS_33
+    - ${location.ls2s2wwmy_dataset_path}/data/train/42UVC_18
+    - ${location.ls2s2wwmy_dataset_path}/data/train/42VXR_79
+    - ${location.ls2s2wwmy_dataset_path}/data/train/43PHR_22
+    - ${location.ls2s2wwmy_dataset_path}/data/train/43SDC_87
+    - ${location.ls2s2wwmy_dataset_path}/data/train/44QNH_20
+    - ${location.ls2s2wwmy_dataset_path}/data/train/44RLS_30
+    - ${location.ls2s2wwmy_dataset_path}/data/train/44WPA_62
+#    - ${location.ls2s2wwmy_dataset_path}/data/train/44WPS_48 No landsat images
+    - ${location.ls2s2wwmy_dataset_path}/data/train/45STA_2
+    - ${location.ls2s2wwmy_dataset_path}/data/train/45UUQ_24
+    - ${location.ls2s2wwmy_dataset_path}/data/train/46QHM_85
+    - ${location.ls2s2wwmy_dataset_path}/data/train/46RDQ_22
+    - ${location.ls2s2wwmy_dataset_path}/data/train/46RFQ_34
+#    - ${location.ls2s2wwmy_dataset_path}/data/train/46VFJ_39 No landsat images
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47PQS_94
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47SLB_51
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47SMV_2
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47SNC_51
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47SPA_94
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47TLH_43
+    - ${location.ls2s2wwmy_dataset_path}/data/train/47UQQ_69
+#    - ${location.ls2s2wwmy_dataset_path}/data/train/47VME_26 No landsat images
+    - ${location.ls2s2wwmy_dataset_path}/data/train/48PYC_35
+    - ${location.ls2s2wwmy_dataset_path}/data/train/48RWS_51
+    - ${location.ls2s2wwmy_dataset_path}/data/train/49RBK_18
+    - ${location.ls2s2wwmy_dataset_path}/data/train/49SDB_72
+    - ${location.ls2s2wwmy_dataset_path}/data/train/49WDS_37
+    - ${location.ls2s2wwmy_dataset_path}/data/train/50KLB_25
+    - ${location.ls2s2wwmy_dataset_path}/data/train/50RLN_69
+    - ${location.ls2s2wwmy_dataset_path}/data/train/50SKD_35
+    - ${location.ls2s2wwmy_dataset_path}/data/train/50UQU_85
+    - ${location.ls2s2wwmy_dataset_path}/data/train/51JVF_56
+    - ${location.ls2s2wwmy_dataset_path}/data/train/51KZA_59
+    - ${location.ls2s2wwmy_dataset_path}/data/train/51UWS_76
+    - ${location.ls2s2wwmy_dataset_path}/data/train/51WXM_6
+    - ${location.ls2s2wwmy_dataset_path}/data/train/52HCK_47
+    - ${location.ls2s2wwmy_dataset_path}/data/train/52JDM_95
+    - ${location.ls2s2wwmy_dataset_path}/data/train/52JFM_4
+    - ${location.ls2s2wwmy_dataset_path}/data/train/52KHF_31
+    - ${location.ls2s2wwmy_dataset_path}/data/train/52WFU_36
+    - ${location.ls2s2wwmy_dataset_path}/data/train/53JMN_3
+    - ${location.ls2s2wwmy_dataset_path}/data/train/53KQB_91
+    - ${location.ls2s2wwmy_dataset_path}/data/train/53LLD_44
+    - ${location.ls2s2wwmy_dataset_path}/data/train/53SKU_62
+    - ${location.ls2s2wwmy_dataset_path}/data/train/54HYG_30
+    - ${location.ls2s2wwmy_dataset_path}/data/train/54SUE_21
+    - ${location.ls2s2wwmy_dataset_path}/data/train/54UUV_77
+    - ${location.ls2s2wwmy_dataset_path}/data/train/55HDT_26
+    - ${location.ls2s2wwmy_dataset_path}/data/train/55HGB_28
+    - ${location.ls2s2wwmy_dataset_path}/data/train/55KCT_74
+    - ${location.ls2s2wwmy_dataset_path}/data/train/55VFK_97
+    - ${location.ls2s2wwmy_dataset_path}/data/train/59WPP_50
+
+  testing_sits:
+    - ${location.ls2s2_dataset_path}/data/test/32UMV_27
+    - ${location.ls2s2_dataset_path}/data/test/33VVJ_42
+    - ${location.ls2s2_dataset_path}/data/test/34TFR_35
+    - ${location.ls2s2_dataset_path}/data/test/22NBL_12
+    - ${location.ls2s2_dataset_path}/data/test/22NCK_12
+    #- ${location.ls2s2_dataset_path}/data/test/30NUL_12
+    - ${location.ls2s2_dataset_path}/data/test/30NUM_12
+    - ${location.ls2s2_dataset_path}/data/test/30NVL_12
+    - ${location.ls2s2_dataset_path}/data/test/30NVM_12
+    - ${location.ls2s2_dataset_path}/data/test/30SWG_12
+    - ${location.ls2s2_dataset_path}/data/test/30SWH_12
+    - ${location.ls2s2_dataset_path}/data/test/31TCJ_12
+    - ${location.ls2s2_dataset_path}/data/test/31TFJ_12
+    - ${location.ls2s2_dataset_path}/data/test/31UES_12
+    - ${location.ls2s2_dataset_path}/data/test/31UFS_12
+    - ${location.ls2s2_dataset_path}/data/test/32TPT_12
+    - ${location.ls2s2_dataset_path}/data/test/32UMU_12
+    - ${location.ls2s2_dataset_path}/data/test/32UMV_12
+    - ${location.ls2s2_dataset_path}/data/test/32UPU_12
+    - ${location.ls2s2_dataset_path}/data/test/33VVJ_12
+    - ${location.ls2s2_dataset_path}/data/test/33VWJ_12
+    - ${location.ls2s2_dataset_path}/data/test/34TFQ_12
+    - ${location.ls2s2_dataset_path}/data/test/34TFR_12
+    - ${location.ls2s2_dataset_path}/data/test/34TFS_12
+    - ${location.ls2s2_dataset_path}/data/test/22NBL_24
+    #- ${location.ls2s2_dataset_path}/data/test/22NCK_24
+    #- ${location.ls2s2_dataset_path}/data/test/30NUL_24
+    - ${location.ls2s2_dataset_path}/data/test/30NUM_24
+    #- ${location.ls2s2_dataset_path}/data/test/30NVL_24
+    - ${location.ls2s2_dataset_path}/data/test/30NVM_24
+    - ${location.ls2s2_dataset_path}/data/test/30SWG_24
+    - ${location.ls2s2_dataset_path}/data/test/30SWH_24
+    - ${location.ls2s2_dataset_path}/data/test/31TCJ_24
+    - ${location.ls2s2_dataset_path}/data/test/31TFJ_24
+    - ${location.ls2s2_dataset_path}/data/test/31UES_24
+    - ${location.ls2s2_dataset_path}/data/test/31UFS_24
+    - ${location.ls2s2_dataset_path}/data/test/32TPT_24
+    - ${location.ls2s2_dataset_path}/data/test/32UMU_24
+    - ${location.ls2s2_dataset_path}/data/test/32UMV_24
+    - ${location.ls2s2_dataset_path}/data/test/32UPU_24
+    - ${location.ls2s2_dataset_path}/data/test/33VVJ_24
+    - ${location.ls2s2_dataset_path}/data/test/33VWJ_24
+    - ${location.ls2s2_dataset_path}/data/test/34TFQ_24
+    - ${location.ls2s2_dataset_path}/data/test/34TFR_24
+    - ${location.ls2s2_dataset_path}/data/test/34TFS_24
+    - ${location.ls2s2wwmy_dataset_path}/data/test/04VEM_48
+    - ${location.ls2s2wwmy_dataset_path}/data/test/09VUD_74
+    - ${location.ls2s2wwmy_dataset_path}/data/test/09WVS_23
+    - ${location.ls2s2wwmy_dataset_path}/data/test/10VFJ_52
+    - ${location.ls2s2wwmy_dataset_path}/data/test/10WDE_32
+    - ${location.ls2s2wwmy_dataset_path}/data/test/12RUU_28
+    - ${location.ls2s2wwmy_dataset_path}/data/test/12TVQ_71
+    - ${location.ls2s2wwmy_dataset_path}/data/test/12VVJ_64
+    - ${location.ls2s2wwmy_dataset_path}/data/test/13RDJ_64
+    - ${location.ls2s2wwmy_dataset_path}/data/test/13UGT_68
+    - ${location.ls2s2wwmy_dataset_path}/data/test/14SKA_18
+    - ${location.ls2s2wwmy_dataset_path}/data/test/14SPG_19
+    - ${location.ls2s2wwmy_dataset_path}/data/test/14TMP_99
+    - ${location.ls2s2wwmy_dataset_path}/data/test/15TXK_63
+    - ${location.ls2s2wwmy_dataset_path}/data/test/16QCH_53
+    - ${location.ls2s2wwmy_dataset_path}/data/test/16SDJ_14
+    - ${location.ls2s2wwmy_dataset_path}/data/test/16TGL_22
+    - ${location.ls2s2wwmy_dataset_path}/data/test/17SLS_74
+    - ${location.ls2s2wwmy_dataset_path}/data/test/18HYB_2
+    - ${location.ls2s2wwmy_dataset_path}/data/test/19FDV_27
+    - ${location.ls2s2wwmy_dataset_path}/data/test/20NMG_20
+    - ${location.ls2s2wwmy_dataset_path}/data/test/22JET_1
+    - ${location.ls2s2wwmy_dataset_path}/data/test/22KHD_47
+    - ${location.ls2s2wwmy_dataset_path}/data/test/22MDC_73
+    - ${location.ls2s2wwmy_dataset_path}/data/test/24MTT_50
+    - ${location.ls2s2wwmy_dataset_path}/data/test/25XEE_22
+    - ${location.ls2s2wwmy_dataset_path}/data/test/29PPR_9
+    - ${location.ls2s2wwmy_dataset_path}/data/test/30TXM_8
+    - ${location.ls2s2wwmy_dataset_path}/data/test/31TFL_78
+    - ${location.ls2s2wwmy_dataset_path}/data/test/31TFM_79
+    - ${location.ls2s2wwmy_dataset_path}/data/test/32PQR_29
+    - ${location.ls2s2wwmy_dataset_path}/data/test/32QNG_1
+    - ${location.ls2s2wwmy_dataset_path}/data/test/33KZR_52
+    - ${location.ls2s2wwmy_dataset_path}/data/test/34LFN_12
+    - ${location.ls2s2wwmy_dataset_path}/data/test/35KNT_12
+    - ${location.ls2s2wwmy_dataset_path}/data/test/36NTK_69
+    - ${location.ls2s2wwmy_dataset_path}/data/test/37VEF_64
+    - ${location.ls2s2wwmy_dataset_path}/data/test/39SYV_90
+    - ${location.ls2s2wwmy_dataset_path}/data/test/39TUJ_50
+    - ${location.ls2s2wwmy_dataset_path}/data/test/39TYN_14
+    - ${location.ls2s2wwmy_dataset_path}/data/test/39UVA_84
+    - ${location.ls2s2wwmy_dataset_path}/data/test/39VXE_43
+    - ${location.ls2s2wwmy_dataset_path}/data/test/41SMA_82
+    - ${location.ls2s2wwmy_dataset_path}/data/test/41TLJ_63
+    - ${location.ls2s2wwmy_dataset_path}/data/test/42VVQ_34
+    - ${location.ls2s2wwmy_dataset_path}/data/test/43SBV_59
+    - ${location.ls2s2wwmy_dataset_path}/data/test/43VEJ_90
+    - ${location.ls2s2wwmy_dataset_path}/data/test/44QLG_19
+    - ${location.ls2s2wwmy_dataset_path}/data/test/44TMQ_70
+    - ${location.ls2s2wwmy_dataset_path}/data/test/44VNJ_19
+    - ${location.ls2s2wwmy_dataset_path}/data/test/45RVK_82
+    - ${location.ls2s2wwmy_dataset_path}/data/test/45RZH_99
+    - ${location.ls2s2wwmy_dataset_path}/data/test/46SDG_27
+#    - ${location.ls2s2wwmy_dataset_path}/data/test/46VDH_95 No landsat images
+    - ${location.ls2s2wwmy_dataset_path}/data/test/47SPV_37
+    - ${location.ls2s2wwmy_dataset_path}/data/test/48RZN_77
+    - ${location.ls2s2wwmy_dataset_path}/data/test/48SXC_41
+    - ${location.ls2s2wwmy_dataset_path}/data/test/50RNU_84
+    - ${location.ls2s2wwmy_dataset_path}/data/test/50UNB_86
+    - ${location.ls2s2wwmy_dataset_path}/data/test/51TVJ_40
+    - ${location.ls2s2wwmy_dataset_path}/data/test/51VWH_42
+    - ${location.ls2s2wwmy_dataset_path}/data/test/52JCR_27
+    - ${location.ls2s2wwmy_dataset_path}/data/test/52LHK_4
+    - ${location.ls2s2wwmy_dataset_path}/data/test/52VEP_96
+    - ${location.ls2s2wwmy_dataset_path}/data/test/54KTD_51
+    - ${location.ls2s2wwmy_dataset_path}/data/test/54KVA_9
+    - ${location.ls2s2wwmy_dataset_path}/data/test/54UUF_8
+    - ${location.ls2s2wwmy_dataset_path}/data/test/55JCF_59
+    - ${location.ls2s2wwmy_dataset_path}/data/test/60WVB_1
+
+
+  validation_indices: ${datamodule.validation_indices}
+  patch_size: 1650
+  lr_sensor : 'landsat'
+  hr_sensor : 'sentinel2'
+  lr_resolution : 30.
+  hr_resolution : 10.
+  mtf_for_downsampling: 0.3
+  dt_orig : null
+  batch_size : 1
+  testing_validation_batch_size : 1
+  validation_ratio : 0.05
+  train_ratio : 0.95
+  num_workers : 16
+  prefetch_factor : 1
+  time_slices_in_days : 365
+  min_nb_dates : 5
+  max_nb_dates: 50
+  conjunctions_only: false
+  cache_dir : null
+  random_reduce_rate: null
+
+data_module:
+  _target_ : tamrfsits.data.joint_sits_datamodule.JointSITSDataModule
+  config : ${datamodule.config}

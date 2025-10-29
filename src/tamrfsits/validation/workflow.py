@@ -24,11 +24,25 @@ from tamrfsits.validation.metrics import (
     frr_referenceless,
     per_date_clear_pixel_rate,
     per_date_masked_rmse,
+    per_date_masked_sam,
     per_date_per_band_brisque,
     sits_density,
 )
 from tamrfsits.validation.strategy import TestingConfiguration
 from tamrfsits.validation.utils import MeasureExecTime, tiled_inference
+
+
+def scale_tir_band(pred: torch.Tensor, ref: torch.tensor):
+    """
+    Apply scaling for BRISQUE and FRR
+    """
+    min_lst = ref.min(dim=-1, keepdim=True)[0].min(dim=-2, keepdim=True)[0]
+    max_lst = ref.max(dim=-1, keepdim=True)[0].max(dim=-2, keepdim=True)[0]
+    # min_lst = 0.25315
+    # max_lst = 0.33315
+    ref = (ref - min_lst) / (max_lst - min_lst)
+    pred = (pred - min_lst) / (max_lst - min_lst)
+    return pred, ref
 
 
 @dataclass(frozen=True)
@@ -40,8 +54,10 @@ class TimeSeriesTestResult:
     name: str
     sensor: str
     rmse: torch.Tensor
+    nrmse: torch.Tensor
     brisque: torch.Tensor
     frr: torch.Tensor
+    sam: torch.Tensor
     target_brisque: torch.Tensor
     doy: torch.Tensor
     clear_doy: torch.Tensor
@@ -60,8 +76,11 @@ class TimeSeriesTestResult:
         Check data integrity
         """
         assert self.rmse.dim() == 2
+        assert self.nrmse.dim() == 2
+        assert self.sam.dim() == 1
         assert self.clear_doy.dtype == torch.bool
         assert self.rmse.shape == self.brisque.shape
+        assert self.rmse.shape == self.nrmse.shape
         assert self.rmse.shape == self.target_brisque.shape
         nb_doys = self.rmse.shape[0]
 
@@ -104,14 +123,21 @@ def to_pandas(
                 "local_density": result.local_density[idx].item(),
                 "local_joint_density": result.local_joint_density[idx].item(),
                 "pred_pixel_rate": result.pred_pixel_rate[idx].item(),
+                "sam": result.sam[idx].item(),
             }
             current_rmse = result.rmse[idx, ...]
+            current_nrmse = result.nrmse[idx, ...]
             current_brisque = result.brisque[idx, ...]
             current_target_brisque = result.target_brisque[idx, ...]
             current_frr = result.frr[idx, ...]
+
             # pylint: disable=loop-invariant-statement
             rmse_dict = {
                 "rmse" + label: current_rmse[bidx].item()
+                for bidx, label in enumerate(band_labels_str)
+            }
+            nrmse_dict = {
+                "nrmse" + label: current_nrmse[bidx].item()
                 for bidx, label in enumerate(band_labels_str)
             }
             # pylint: disable=loop-invariant-statement
@@ -132,6 +158,7 @@ def to_pandas(
 
             # Update current dict with band dict
             current_dict.update(rmse_dict)
+            current_dict.update(nrmse_dict)
             current_dict.update(brisque_dict)
             current_dict.update(frr_dict)
             current_dict.update(target_brisque_dict)
@@ -196,6 +223,8 @@ ComputeMetricsResultType = tuple[
     torch.Tensor,
     torch.Tensor,
     torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
 ]
 
 
@@ -226,11 +255,18 @@ def compute_lr_metrics(
         )
 
         assert target_lr.mask is not None
-        lr_ref_mask = derive_reference_mask(
-            target_lr.mask,
-            nb_features=target_lr.shape()[2],
-            spatial_margin=margin,
-        )
+        if pred_lr_ds.mask is None:
+            lr_ref_mask = derive_reference_mask(
+                target_lr.mask,
+                nb_features=target_lr.shape()[2],
+                spatial_margin=margin,
+            )
+        else:
+            lr_ref_mask = derive_reference_mask(
+                torch.logical_or(target_lr.mask, pred_lr_ds.mask),
+                nb_features=target_lr.shape()[2],
+                spatial_margin=margin,
+            )
         # We assume batch_size of 1
         assert pred_lr.doy.shape[0] == 1
 
@@ -238,49 +274,55 @@ def compute_lr_metrics(
         # If TIR is produced, compute metrics in °K
         if pred_lr_ds.data.shape[2] >= 8:
             pred_lr_ds.data[:, :, 7, ...] *= 1000
+            pred_lr.data[:, :, 7, ...] *= 1000
+        elif pred_lr_ds.data.shape[2] == 1:
+            pred_lr_ds.data[:, :, 0, ...] *= 1000
+            pred_lr.data[:, :, 0, ...] *= 1000
 
         lr_rmse = per_date_masked_rmse(pred_lr_ds.data, target_lr.data, lr_ref_mask)
+        lr_nrmse = per_date_masked_rmse(
+            pred_lr_ds.data, target_lr.data, lr_ref_mask, normalize=True
+        )
+
+    # Compute SAM, without using TIR
+    lr_sam = per_date_masked_sam(
+        pred_lr_ds.data[:, :, :7, ...],
+        target_lr.data[:, :, :7, ...],
+        lr_ref_mask[:, :, :7, ...],
+    )
 
     pred_lr = crop_sits(pred_lr, margin=margin)
     target_lr_up = crop_sits(target_lr_up, margin=margin)
 
     with MeasureExecTime("FRR metric", profile):
-        if pred_lr.data.shape[2] >= 8:
-            pred_lr.data[:, :, 7, ...] /= 1000
-        if target_lr_up.data.shape[2] >= 8:
-            target_lr_up.data[:, :, 7, ...] /= 1000.0
         frr_referenceless_result = frr_referenceless(
             pred_lr.data, target_lr_up.data, patch_size=990
         )
         assert frr_referenceless_result is not None
         lr_frr, pred_lr_prof, ref_lr_prof, freqs = frr_referenceless_result
 
+    # Scale tir band for next metrics
+    if pred_lr.data.shape[2] >= 8:
+        pred_lr_data, ref_lr_data = scale_tir_band(
+            pred_lr.data[:, :, 7, ...], target_lr.data[:, :, 7, ...]
+        )
+        pred_lr.data[:, :, 7, ...] = pred_lr_data
+        target_lr.data[:, :, 7, ...] = ref_lr_data
+    elif pred_lr.data.shape[2] == 1:
+        pred_lr_data, ref_lr_data = scale_tir_band(
+            pred_lr.data[:, :, 0, ...], target_lr.data[:, :, 0, ...]
+        )
+        pred_lr.data[:, :, 0, ...] = pred_lr_data
+        target_lr.data[:, :, 0, ...] = ref_lr_data
+
     with MeasureExecTime("BRISQUE metric", profile):
-        if target_lr.data.shape[2] >= 8:
-            # Here we scale TIR data for each date with the range of LST
-            # from the reference, in order to get a meaningful BRISQUE value
-            target_lr.data[:, :, 7, ...] /= 1000.0
-            min_lst = (
-                target_lr.data[:, :, 7, ...]
-                .min(dim=-1, keepdim=True)[0]
-                .min(dim=-2, keepdim=True)[0]
-            )
-            max_lst = (
-                target_lr.data[:, :, 7, ...]
-                .max(dim=-1, keepdim=True)[0]
-                .max(dim=-2, keepdim=True)[0]
-            )
-            target_lr.data[:, :, 7, ...] = (target_lr.data[:, :, 7, ...] - min_lst) / (
-                max_lst - min_lst
-            )
-            pred_lr.data[:, :, 7, ...] = (
-                1000.0 * pred_lr.data[:, :, 7, ...] - min_lst
-            ) / (max_lst - min_lst)
         lr_brisque = per_date_per_band_brisque(pred_lr.data)
         lr_target_brisque = per_date_per_band_brisque(target_lr.data)
 
         return (
             lr_rmse,
+            lr_nrmse,
+            lr_sam,
             lr_brisque,
             lr_frr,
             lr_target_brisque,
@@ -312,6 +354,13 @@ def compute_hr_metrics(
             mtf_fc=mtf_fc,
             factor=float(pred_hr.shape()[-1]) / target_hr.shape()[-1],
         )
+        target_hr_ds = downsample_sits_from_mtf(
+            target_hr,
+            10.0,
+            mtf_res=mtf_res,
+            mtf_fc=mtf_fc,
+            factor=float(pred_hr.shape()[-1]) / target_hr.shape()[-1],
+        )
 
         # Union of all possible doys
         assert target_hr.mask is not None
@@ -320,12 +369,20 @@ def compute_hr_metrics(
             nb_features=target_hr.shape()[2],
             spatial_margin=margin,
         )
+        hr_ref_mask_ds = derive_reference_mask(
+            target_hr_ds.mask,
+            nb_features=target_hr.shape()[2],
+            spatial_margin=margin,
+        )
         # We assume batch_size of 1
         assert pred_hr.doy.shape[0] == 1
 
     with MeasureExecTime("RMSE metric", profile):
         hr_rmse = per_date_masked_rmse(pred_hr_ds.data, target_hr.data, hr_ref_mask)
-
+        hr_nrmse = per_date_masked_rmse(
+            pred_hr_ds.data, target_hr.data, hr_ref_mask, normalize=True
+        )
+    hr_sam = per_date_masked_sam(pred_hr_ds.data, target_hr_ds.data, hr_ref_mask_ds)
     pred_hr = crop_sits(pred_hr, margin=margin)
     target_hr_up = crop_sits(target_hr_up, margin=margin)
 
@@ -342,6 +399,8 @@ def compute_hr_metrics(
 
     return (
         hr_rmse,
+        hr_nrmse,
+        hr_sam,
         hr_brisque,
         hr_frr,
         hr_target_brisque,
@@ -405,13 +464,15 @@ def compute_metrics(
         if not results:
             raise ValueError("Found no predicted dates for metrics computation")
         lr_rmse = torch.cat([r[0] for r in results])
-        lr_brisque = torch.cat([r[1] for r in results])
-        lr_frr = torch.cat([r[2] for r in results])
-        lr_target_brisque = torch.cat([r[3] for r in results])
-        pred_lr_prof = torch.cat([r[4] for r in results])
-        ref_lr_prof = torch.cat([r[5] for r in results])
-        freqs = results[0][6]
-        lr_clear_doy_mask = torch.cat([r[7] for r in results])
+        lr_nrmse = torch.cat([r[1] for r in results])
+        lr_sam = torch.cat([r[2] for r in results])
+        lr_brisque = torch.cat([r[3] for r in results])
+        lr_frr = torch.cat([r[4] for r in results])
+        lr_target_brisque = torch.cat([r[5] for r in results])
+        pred_lr_prof = torch.cat([r[6] for r in results])
+        ref_lr_prof = torch.cat([r[7] for r in results])
+        freqs = results[0][8]
+        lr_clear_doy_mask = torch.cat([r[9] for r in results])
         if test_config.lr_input is not None and test_config.lr_target is not None:
             all_lr_doys = torch.cat(
                 [d for d in (lr_clear_doy, lr_masked_doy) if d is not None]
@@ -445,6 +506,8 @@ def compute_metrics(
                 pred_prof=pred_lr_prof,
                 ref_prof=ref_lr_prof,
                 freqs=freqs,
+                nrmse=lr_nrmse,
+                sam=lr_sam,
             )
 
     hr_test_results: TimeSeriesTestResult | None = None
@@ -479,13 +542,15 @@ def compute_metrics(
             raise ValueError("Found no predicted dates for metrics computation")
 
         hr_rmse = torch.cat([r[0] for r in results])
-        hr_brisque = torch.cat([r[1] for r in results])
-        hr_frr = torch.cat([r[2] for r in results])
-        hr_target_brisque = torch.cat([r[3] for r in results])
-        pred_hr_prof = torch.cat([r[4] for r in results])
-        ref_hr_prof = torch.cat([r[5] for r in results])
-        freqs = results[0][6]
-        hr_clear_doy_mask = torch.cat([r[7] for r in results])
+        hr_nrmse = torch.cat([r[1] for r in results])
+        hr_sam = torch.cat([r[2] for r in results])
+        hr_brisque = torch.cat([r[3] for r in results])
+        hr_frr = torch.cat([r[4] for r in results])
+        hr_target_brisque = torch.cat([r[5] for r in results])
+        pred_hr_prof = torch.cat([r[6] for r in results])
+        ref_hr_prof = torch.cat([r[7] for r in results])
+        freqs = results[0][8]
+        hr_clear_doy_mask = torch.cat([r[9] for r in results])
         if test_config.hr_input is not None and test_config.hr_target is not None:
             all_hr_doys = torch.cat(
                 [d for d in (hr_clear_doy, hr_masked_doy) if d is not None]
@@ -530,6 +595,8 @@ def compute_metrics(
             pred_prof=pred_hr_prof,
             ref_prof=ref_hr_prof,
             freqs=freqs,
+            nrmse=hr_nrmse,
+            sam=hr_sam,
         )
 
     return lr_test_results, hr_test_results

@@ -11,10 +11,13 @@
 #SBATCH --time=4:00:00             # Walltime 24h
 #SBATCH --mem-per-cpu=7G           # memory per cpu
 #SBATCH --export=none              #  to start the job with a clean environnement and source of ~/.bashrc
-cd /work/scratch/data/$USER/tamrfsits/
+cd /work/scratch/data/$USER/src/tamrfsits/
 module load conda
 conda activate .pixi/envs/default/
 cd bin
 export PYTHONOPTIMIZE=TRUE
 export TORCHINDUCTOR_CACHE_DIR=$TMPDIR/$SLURM_JOBID/
+export UTILISE_CONFIGURATION_FILE=/work/scratch/data/michelj/src/tamrfsits/data/models/utilise/demo.yaml
+export UTILISE_WEIGHTS_FILE=/work/scratch/data/michelj/src/tamrfsits/data/models/utilise/utilise_earthnet2021.pth
+
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True srun --export=ALL python ./test.py "$@"

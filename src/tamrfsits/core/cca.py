@@ -184,11 +184,12 @@ class DatewiseLinearRegressionLoss(torch.nn.Module):
         """
         super().__init__()
 
-        self.lpips: CompiledTorchModule = torch.compile(
+        self.lpips: CompiledTorchModule = (
             MaskedLPIPSLoss(LPIPS(mean=[0, 0, 0], std=[1.0, 1.0, 1.0]))
             .requires_grad_(False)
             .eval()
         )
+        self.lpips.compile()
 
         self.loss = loss
         self.max_masked_rate = max_masked_rate
@@ -420,7 +421,7 @@ class DatewiseLinearRegressionLoss(torch.nn.Module):
         linear_reg_output_data = repeat(linear_reg_output_data, "b w h -> b 3 w h")
         pred_data = repeat(pred_data, "b w h -> b 3 w h")
 
-        loss_value = self.lpips(linear_reg_output_data, pred_data, loss_mask)
+        loss_value = self.lpips(pred_data, linear_reg_output_data, loss_mask)
 
         return loss_value
 

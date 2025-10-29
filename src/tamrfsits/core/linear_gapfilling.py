@@ -138,7 +138,6 @@ def _compute_weights(doy: Tensor, target_doy: Tensor) -> InterpolationWeights:
     xt_target_doy = rearrange(target_doy, "n -> 1 1 1 n")
 
     doy_diff = xt_source_doy - xt_target_doy
-
     # Now doy_diff shape is [B,T,N,F]
     doy_diff = doy_diff.transpose(-2, -1)
 
@@ -243,7 +242,9 @@ def _prepare_outputs(
     return MonoModalSITS(data=interpolated_data, doy=out_doy, mask=None)
 
 
-def linear_gapfilling(sits: MonoModalSITS, target_doy: Tensor) -> MonoModalSITS:
+def linear_gapfilling(
+    sits: MonoModalSITS, target_doy: Tensor, chunk_size: int = 10000
+) -> MonoModalSITS:
     """
     Linear gapfilling function
     data: Input data tensor, shape [B,T, ...]
@@ -259,10 +260,16 @@ def linear_gapfilling(sits: MonoModalSITS, target_doy: Tensor) -> MonoModalSITS:
 
     # prepare data
     sits_flat, input_data_shape = _prepare_data(sits)
-    # Compute interpolation weights
-    weights = _compute_weights(sits_flat.doy, target_doy)
     # Apply interpolation weights and restore trailing dimensions
-    interpolated_data = _interpolate(sits_flat.data, weights)
+    interpolated_data = torch.cat(
+        tuple(
+            _interpolate(data, _compute_weights(doy, target_doy))
+            for data, doy in zip(
+                torch.chunk(sits_flat.data, dim=0, chunks=chunk_size),
+                torch.chunk(sits_flat.doy, dim=0, chunks=chunk_size),
+            )
+        )
+    )
 
     assert interpolated_data.shape[-1] == sits.data.shape[2]
 

@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - override /training_module: spatiotemporal_fusion.yaml
+  - override /datamodule: ls2s2_all.yaml
+
+training_module:
+  parameters:
+    mae_parameters:
+      _target_: tamrfsits.validation.strategy.MAEParameters
+      strategies:
+        - _target_ : tamrfsits.validation.strategy.ValidationStrategy
+          _args_: ["RANDOM"]
+
+label: "ablation_mae"

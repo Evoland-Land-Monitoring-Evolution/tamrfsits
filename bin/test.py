@@ -24,7 +24,13 @@ from tamrfsits.baselines.dstfn import DSTFNSITSFusion
 from tamrfsits.baselines.naive import NaiveSITSFusion
 from tamrfsits.baselines.sen2like import Sen2LikeFusion
 from tamrfsits.baselines.stair import STAIRSITSFusion
+from tamrfsits.baselines.utilise import UtiliseGapFilling
 from tamrfsits.baselines.utils import load_deepharmo_ensemble, load_dsen2_model
+from tamrfsits.core.downsampling import (
+    convolve_sits_with_psf,
+    downsample_sits,
+    generate_psf_kernel,
+)
 from tamrfsits.core.time_series import (
     MonoModalSITS,
     crop_sits,
@@ -71,6 +77,7 @@ class Algorithm(Enum):
     NAIVE = "NAIVE"
     DSTFN = "DSTFN"
     DMS = "DMS"
+    UTILISE = "UTILISE"
 
 
 def get_processed_bands(algorithm: Algorithm) -> tuple[list[int], list[int]]:
@@ -111,8 +118,13 @@ def get_processed_bands(algorithm: Algorithm) -> tuple[list[int], list[int]]:
         )
     if algorithm is Algorithm.DMS:
         lr_bands = [7]
-        hr_bands = [0, 1, 2, 3]
+        hr_bands = [0, 1, 2, 6]
         return (lr_bands, hr_bands)
+    if algorithm is Algorithm.UTILISE:
+        hr_bands = [0, 1, 2, 6]
+        lr_bands = []
+        return (lr_bands, hr_bands)
+
     raise ValueError(algorithm)
 
 
@@ -125,7 +137,7 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
     if algorithm in (Algorithm.TAMRFSITS, Algorithm.NAIVE):
         return (
             SingleSITSDataset(
-                ts, lr_resolution=30.0, patch_size=args.width, dt_orig="2022.01.01"
+                ts, lr_resolution=30.0, patch_size=args.width, dt_orig=args.dt_orig
             ),
             list(range(8)),
             list(range(10)),
@@ -141,7 +153,7 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
                 hr_bands=(hr_bands,),
                 lr_resolution=30.0,
                 conjunctions_only=False,
-                dt_orig="2022.01.01",
+                dt_orig=args.dt_orig,
                 patch_size=args.width,
             ),
             lr_bands,
@@ -152,7 +164,7 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
             SingleSITSDataset(
                 ts,
                 patch_size=args.width,
-                dt_orig="2022.01.01",
+                dt_orig=args.dt_orig,
                 lr_resolution=10.0,
             ),
             list(range(8)),
@@ -169,7 +181,7 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
                 lr_bands=(lr_bands, None),
                 hr_bands=(hr_bands,),
                 lr_resolution=10.0,
-                dt_orig="2022.01.01",
+                dt_orig=args.dt_orig,
                 conjunctions_only=True,
             ),
             lr_bands,
@@ -186,7 +198,7 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
                 lr_bands=(lr_bands, None),
                 hr_bands=(hr_bands,),
                 lr_resolution=15.0,
-                dt_orig="2022.01.01",
+                dt_orig=args.dt_orig,
                 patch_size=args.width,
             ),
             lr_bands,
@@ -194,7 +206,22 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
         )
     if algorithm is Algorithm.DMS:
         lr_bands = [7]
-        hr_bands = [0, 1, 2, 3]
+        hr_bands = [0, 1, 2, 6]
+
+        return (
+            SingleSITSDataset(
+                ts,
+                lr_bands=(lr_bands,),
+                hr_bands=(hr_bands,),
+                dt_orig=args.dt_orig,
+                patch_size=args.width,
+            ),
+            lr_bands,
+            hr_bands,
+        )
+    if algorithm is Algorithm.UTILISE:
+        lr_bands = [7]
+        hr_bands = [0, 1, 2, 6]
 
         return (
             SingleSITSDataset(
@@ -207,7 +234,6 @@ def build_dataset(ts: str, args) -> tuple[SingleSITSDataset, list[int], list[int
             lr_bands,
             hr_bands,
         )
-
     raise ValueError(algorithm)
 
 
@@ -217,12 +243,16 @@ def get_strategy(args) -> ValidationParameters:
     """
     algorithm = Algorithm(args.algorithm)
 
-    if algorithm in (Algorithm.TAMRFSITS, Algorithm.NAIVE):
+    if algorithm in (Algorithm.TAMRFSITS, Algorithm.NAIVE, Algorithm.UTILISE):
         return ValidationParameters(
             strategy=ValidationStrategy(args.strategy),
             rate_for_random_strategy=args.mask_rate_for_random_strategy,
             forecast_doy_start=args.forecast_doy_start,
             gaps_size=args.gaps_size,
+            context_reference_size=args.context_reference_size,
+            context_start=args.context_start,
+            nb_context_images=args.context_nb_dates,
+            custom_dates=args.custom_target_dates,
         )
     if algorithm in (Algorithm.SEN2LIKE, Algorithm.DSTFN):
         return ValidationParameters(strategy=ValidationStrategy.CONJLRuHR2HR)
@@ -251,12 +281,33 @@ def compute_predictions(
             args.checkpoint, args.seed, args.config, device=device
         )
         # Make predictions
-        return model_predict(
+        pred_lr, pred_hr = model_predict(
             test_config,
             model,
             show_progress=args.show_subtile_progress,
             subtile_width=args.subtile_width,
         )
+        if args.tamrfsits_rescomp:
+            input_lr = subset_doy_monomodal_sits(test_config.lr_target, pred_lr.doy)
+            input_lr_up = downsample_sits(input_lr, factor=1 / 3.0)
+            mtf = torch.tensor(
+                [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.2], device=input_lr.data.device
+            )
+            mtf_res = torch.tensor(
+                [30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 90.0],
+                device=input_lr.data.device,
+            )
+            psfs = generate_psf_kernel(res=10.0, mtf_res=mtf_res, mtf_fc=mtf)
+            pred_blur = convolve_sits_with_psf(pred_lr, kernel=psfs)
+
+            lr_up_data = input_lr_up.data
+            lr_up_data[:, :, 7, ...] /= 1000.0
+            residuals = lr_up_data - pred_blur.data
+            pred_lr = MonoModalSITS(
+                pred_lr.data + residuals, pred_lr.doy, input_lr_up.mask
+            )
+
+        return pred_lr, pred_hr
 
     elif algorithm is Algorithm.NAIVE:
         assert test_config.lr_input is not None
@@ -286,6 +337,30 @@ def compute_predictions(
         )
 
         return pred_lr, pred_hr
+
+    elif algorithm is Algorithm.UTILISE:
+        assert test_config.hr_input is not None
+        assert test_config.hr_target is not None
+
+        hr_input = MonoModalSITS(
+            test_config.hr_input.data / 10000.0,
+            test_config.hr_input.doy,
+            test_config.hr_input.mask,
+        )
+
+        model = UtiliseGapFilling()
+
+        pred_hr = (
+            model(
+                hr_input,
+                test_config.hr_target.doy.ravel().to(device=hr_input.data.device),
+            )
+            if (
+                test_config.hr_target.doy.shape[1] and test_config.hr_input.doy.shape[1]
+            )
+            else None
+        )
+        return None, pred_hr
 
     elif algorithm in (Algorithm.STAIR, Algorithm.SEN2LIKE, Algorithm.DSTFN):
         assert test_config.lr_input is not None
@@ -425,6 +500,17 @@ def process_time_series(
                 test_config, device=device, args=args
             )
         if not args.disable_metrics:
+            if args.invert_reference_masks:
+                test_config.lr_target = MonoModalSITS(
+                    test_config.lr_target.data,
+                    test_config.lr_target.doy,
+                    ~test_config.lr_target.mask,
+                )
+                test_config.hr_target = MonoModalSITS(
+                    test_config.hr_target.data,
+                    test_config.hr_target.doy,
+                    ~test_config.hr_target.mask,
+                )
             with MeasureExecTime("Compute metrics", args.profile):
                 # Compute metrics
                 lr_result, hr_result = compute_metrics(
@@ -627,6 +713,11 @@ def main():
         "--disable_metrics", action="store_true", help="Disable metrics computation"
     )
     parser.add_argument(
+        "--invert_reference_masks",
+        action="store_true",
+        help="Invert the reference mask so as to compute metrics on masked pixels",
+    )
+    parser.add_argument(
         "--patch_idx",
         default=0,
         type=int,
@@ -672,6 +763,31 @@ def main():
         "--gaps_size", default=30, type=int, help="Size of GAPS for the GAPS strategy"
     )
     parser.add_argument(
+        "--context_reference_size",
+        default=60,
+        type=int,
+        help="Size of the reference period in days for the CONTEXT strategy",
+    )
+    parser.add_argument(
+        "--context_start",
+        default=160,
+        type=int,
+        help="Size of the reference period in days for the CONTEXT strategy",
+    )
+    parser.add_argument(
+        "--context_nb_dates",
+        default=2,
+        type=int,
+        help="Number of dates before and after the reference period for the CONTEXT strategy",
+    )
+    parser.add_argument(
+        "--custom_target_dates",
+        required=False,
+        type=int,
+        nargs="+",
+        help="Target doys for the custom strategy",
+    )
+    parser.add_argument(
         "--sen2like_hpf_mtf",
         type=float,
         default=0.4,
@@ -684,7 +800,11 @@ def main():
         default=0.5,
         help="Max masked rate for sen2like",
     )
-
+    parser.add_argument(
+        "--tamrfsits_rescomp",
+        action="store_true",
+        help="Perfom residual compensation with TAMRF",
+    )
     parser.add_argument(
         "--dms_tmp_dir",
         type=str,
@@ -710,6 +830,10 @@ def main():
         "--generate_animations",
         action="store_true",
         help="Generate HTML animation for prediction",
+    )
+
+    parser.add_argument(
+        "--dt_orig", required=False, type=str, help="Origin of doy count"
     )
 
     args = parser.parse_args()
@@ -749,8 +873,6 @@ def main():
                 args,
                 dev,
             )
-            assert lr_result is not None
-            assert hr_result is not None
             lr_results.append(lr_result)
             hr_results.append(hr_result)
         except FileNotFoundError as e:

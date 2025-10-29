@@ -85,11 +85,13 @@ def dms_single_step_predict(
                         resolution=1.0,
                     )
                     write_image(
-                        255
-                        * (
-                            torch.logical_and(
-                                (lr_mask[None, ...]),
-                                (hr_mask[None, ...]),
+                        (
+                            255
+                            * (
+                                torch.logical_or(
+                                    (lr_mask[None, ...]),
+                                    (hr_mask[None, ...]),
+                                )
                             ).to(dtype=torch.uint8)
                         ),
                         Path(mask_file.name),
@@ -120,7 +122,6 @@ def dms_single_step_predict(
                             _, out_data = disaggregator.residualAnalysis(
                                 downscaled_file,
                                 lr_tiff_file.name,
-                                mask_file.name,
                                 doCorrection=True,
                             )
 
@@ -149,6 +150,11 @@ def dms_predict(
     # Locate closest hr data
     closest_hr_sits = find_closest_in_sits(hr_sits, lst_sits.doy)
     # Go back to 90m
+    lr_sits_up = downsample_sits(
+        lst_sits.to(dtype=torch.float32),
+        factor=1 / 3.0,
+    )
+
     lst_sits = downsample_sits(
         lst_sits.to(dtype=torch.float32),
         factor=3.0,
@@ -182,7 +188,11 @@ def dms_predict(
     # Export results
     out_data = torch.cat([t[None, None, ...] for t in out_list], dim=1)
     out_mask = torch.isnan(out_data[:, :, 0, ...])
-    out_data[torch.isnan(out_data)] = 0.0  # replace NaN with dummy values
+    out_mask = torch.logical_or(out_mask, closest_hr_sits.mask)
+    # Here, we should add this mask only if residual_compensation mode,
+    # but we keep this as is to be able to make a fair comparison
+    # between the two modes
+    out_mask = torch.logical_or(out_mask, lr_sits_up.mask)
     return MonoModalSITS(
         out_data / 10000.0, lst_sits.doy.to(dtype=torch.int16), out_mask
     )

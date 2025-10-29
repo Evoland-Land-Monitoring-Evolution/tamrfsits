@@ -1,0 +1,20 @@
+# @package _global_
+
+defaults:
+  - override /training_module: spatiotemporal_fusion.yaml
+  - override /datamodule: ls2s2_all.yaml
+  - override /decoder: esrdec.yaml
+
+training_module:
+  training_module:
+    encoder:
+      sensor_token_size: 0
+    decoder:
+      sensor_token_size: 0
+
+decoder:
+  model:
+    model:
+      latent_size: 128
+
+label: "ablation_sensor_token"

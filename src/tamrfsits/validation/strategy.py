@@ -42,6 +42,8 @@ class ValidationStrategy(Enum):
     RANDOM_ALL_DOYS = "RANDOM_ALL_DOYS"
     L3A = "L3A"
     L3A_10D = "L3A_10D"
+    CONTEXT = "CONTEXT"
+    CUSTOM = "CUSTOM"
 
 
 DEFAULT_MAE_STRATEGIES = (
@@ -86,6 +88,10 @@ class ValidationParameters:
     rate_for_random_strategy: float = 0.5
     forecast_doy_start: int = 183
     gaps_size: int = 30
+    context_reference_size: int = 60
+    context_start: int = 160
+    nb_context_images: int = 1
+    custom_dates: list[int] | None = None
 
 
 @dataclass
@@ -111,6 +117,8 @@ class TestingConfiguration:
             # If TIR is produced, compute metrics in °K
             if self.lr_target.data.shape[2] >= 8:
                 self.lr_target.data[:, :, 7, ...] *= 1000
+            elif self.lr_target.data.shape[2] == 1:
+                self.lr_target.data[:, :, 0, ...] *= 1000
         if self.hr_target is not None:
             self.hr_target = MonoModalSITS(
                 self.hr_target.data / 10000.0, self.hr_target.doy, self.hr_target.mask
@@ -411,7 +419,6 @@ def generate_configurations(
             - 1
         )
         target_doy = torch.sort(target_doy, dim=1)[0]
-        print(target_doy)
         dummy_target_data = torch.zeros(
             (
                 hr_sits.data.shape[0],
@@ -440,7 +447,6 @@ def generate_configurations(
         )
     elif parameters.strategy is ValidationStrategy.L3A_10D:
         target_doy = torch.arange(0, 365, 10, device=hr_sits.data.device)[None, :]
-        print(target_doy)
         dummy_target_data = torch.zeros(
             (
                 hr_sits.data.shape[0],
@@ -466,6 +472,87 @@ def generate_configurations(
             hr_sits,
             None,
             MonoModalSITS(dummy_target_data, target_doy, dummy_target_mask),
+        )
+    elif parameters.strategy is ValidationStrategy.CONTEXT:
+        reference_end = parameters.context_reference_size + parameters.context_start
+        first_idx_lr = torch.argmax(
+            lr_sits.doy.masked_fill(lr_sits.doy > parameters.context_start, 0)
+        )
+
+        last_idx_lr = torch.argmin(
+            lr_sits.doy.masked_fill(lr_sits.doy < reference_end, 365)
+        )
+        first_idx_hr = torch.argmax(
+            hr_sits.doy.masked_fill(hr_sits.doy > parameters.context_start, 0)
+        )
+        last_idx_hr = torch.argmin(
+            hr_sits.doy.masked_fill(hr_sits.doy < reference_end, 365)
+        )
+        nb_lr_doys = lr_sits.doy.shape[1]
+        nb_hr_doys = hr_sits.doy.shape[1]
+
+        lr_target_doy = lr_sits.doy[:, first_idx_lr + 1 : last_idx_lr]
+        lr_input_doy = torch.cat(
+            (
+                lr_sits.doy[
+                    :,
+                    max(
+                        0,
+                        first_idx_lr + 1 - parameters.nb_context_images,
+                    ) : first_idx_lr
+                    + 1,
+                ],
+                lr_sits.doy[
+                    :,
+                    last_idx_lr : min(
+                        last_idx_lr + parameters.nb_context_images, nb_lr_doys
+                    ),
+                ],
+            ),
+            dim=1,
+        )
+        hr_target_doy = hr_sits.doy[:, first_idx_hr + 1 : last_idx_hr]
+        hr_input_doy = torch.cat(
+            (
+                hr_sits.doy[
+                    :,
+                    max(
+                        0, first_idx_hr + 1 - parameters.nb_context_images
+                    ) : first_idx_hr
+                    + 1,
+                ],
+                hr_sits.doy[
+                    :,
+                    last_idx_hr : min(
+                        last_idx_hr + parameters.nb_context_images, nb_hr_doys
+                    ),
+                ],
+            ),
+            dim=1,
+        )
+        yield TestingConfiguration(
+            subset_doy_monomodal_sits(lr_sits, lr_input_doy),
+            subset_doy_monomodal_sits(hr_sits, hr_input_doy),
+            subset_doy_monomodal_sits(
+                lr_sits,
+                torch.sort(torch.cat((lr_input_doy, lr_target_doy), dim=1), dim=1)[0],
+            ),
+            subset_doy_monomodal_sits(
+                hr_sits,
+                torch.sort(torch.cat((hr_input_doy, hr_target_doy), dim=1), dim=1)[0],
+            ),
+        )
+    elif parameters.strategy is ValidationStrategy.CUSTOM:
+        assert parameters.custom_dates is not None
+
+        target_doy = torch.tensor(parameters.custom_dates, device=hr_sits.data.device)
+        target_doy = target_doy[None, ...]
+
+        yield TestingConfiguration(
+            lr_sits,
+            hr_sits,
+            subset_doy_monomodal_sits(lr_sits, target_doy),
+            subset_doy_monomodal_sits(hr_sits, target_doy),
         )
 
     else:

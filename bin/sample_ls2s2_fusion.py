@@ -10,6 +10,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from shutil import rmtree
 from typing import cast
 
 import numpy as np
@@ -19,6 +20,7 @@ import rasterio as rio  # type: ignore
 import requests
 import xarray as xr
 from affine import Affine  # type: ignore
+from pyproj.crs import CRS
 from scipy.ndimage import (  # type: ignore
     affine_transform,
     binary_closing,
@@ -26,6 +28,8 @@ from scipy.ndimage import (  # type: ignore
     binary_opening,
 )
 from tqdm import tqdm
+
+from tamrfsits.data.joint_sits_dataset import SingleSITSDataset
 
 DEFAULT_BANDS = ["B02", "B03", "B04", "B08"]
 
@@ -216,7 +220,7 @@ def get_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--mode",
-        choices=["submit", "download", "extract"],
+        choices=["submit", "download", "extract", "clean", "check"],
         help="Processing step",
         default="submit",
     )
@@ -234,6 +238,11 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--s2_qa", action="store_true", help="Write QA layers for Sentinel2"
     )
+
+    parser.add_argument(
+        "--ls_qa", action="store_true", help="Write QA layers for Landsat"
+    )
+
     parser.add_argument(
         "--disable_animation", action="store_true", help="Disable animation generation"
     )
@@ -265,10 +274,10 @@ def submit(args):
     """
     # # First, connect to openeo
     connection = openeo.connect("https://openeo.vito.be/openeo/1.2").authenticate_oidc()
-    job_ids: dict[str, str] = {}
+
     for json_file in args.json:
         logging.info(f"Processing json file {json_file}")
-
+        job_ids: dict[str, str] = {}
         # Read configuration
         cfg = read_json_configuration(json_file)
 
@@ -284,19 +293,6 @@ def submit(args):
 
         # Copy json to output folder
         shutil.copyfile(json_file, os.path.join(folder, os.path.basename(json_file)))
-        job_options = {
-            "executor-memory": "10G",
-            "executor-memoryOverhead": "16G",  # default 2G
-            "executor-cores": 2,
-            "task-cpus": 1,
-            "executor-request-cores": "400m",
-            "max-executors": "100",
-            "driver-memory": "16G",
-            "driver-memoryOverhead": "16G",
-            "driver-cores": 5,
-            "udf-dependency-archives": [],
-            "logging-threshold": "info",
-        }
 
         if "sentinel2" in args.sensors:
             if args.override or "sentinel2" not in job_ids:
@@ -333,8 +329,10 @@ def submit(args):
                 )
 
                 # Build download job
-                s2_download_job = s2_cube.save_result("NetCDF").create_job(
-                    title=f"Sentinel2_{cfg.name}", job_options=job_options
+                s2_download_job = (
+                    s2_cube.resample_spatial(resolution=10.0, projection=cfg.crs)
+                    .save_result("NetCDF")
+                    .create_job(title=f"Sentinel2_{cfg.name}")
                 )
                 s2_download_job.start()
                 logging.info(f"Sent job {s2_download_job.job_id}")
@@ -376,8 +374,10 @@ def submit(args):
                     max_cloud_cover=args.max_product_cloud_cover,
                 )
 
-                ls_download_job = ls_cube.save_result("NetCDF").create_job(
-                    title=f"Landsat_{cfg.name}", job_options=job_options
+                ls_download_job = (
+                    ls_cube.resample_spatial(resolution=30.0, projection=cfg.crs)
+                    .save_result("NetCDF")
+                    .create_job(title=f"Landsat_{cfg.name}")
                 )
                 ls_download_job.start()
                 logging.info(f"Sent job {ls_download_job.job_id}")
@@ -405,8 +405,10 @@ def submit(args):
                     max_cloud_cover=args.max_product_cloud_cover,
                 )
 
-                lspan_download_job = lspan_cube.save_result("NetCDF").create_job(
-                    title=f"Landsat_pan_{cfg.name}", job_options=job_options
+                lspan_download_job = (
+                    lspan_cube.resample_spatial(resolution=15.0, projection=cfg.crs)
+                    .save_result("NetCDF")
+                    .create_job(title=f"Landsat_pan_{cfg.name}")
                 )
                 lspan_download_job.start()
                 logging.info(f"Sent job {lspan_download_job.job_id}")
@@ -461,9 +463,35 @@ def download(args):
                         download_file(job.get_results().get_asset().href, nc_file)
                 else:
                     logging.info(
-                        f"{sensor} already downloaded and ovveride is \
-                        deactivated, skipping"
+                        f"{sensor} already downloaded and override is "
+                        "deactivated, skipping"
                     )
+
+
+def geographical_slicing(arr: xr.Dataset, cfg: dict, crop: int = 990) -> xr.Dataset:
+    """
+    Perform geographical slicing.
+    Applies bounds from cfg if utm zone matches the requested utm zone.
+    Otherwise crop the data with provided crop parameter
+
+    """
+    retrieved_epsg = CRS(arr.crs.crs_wkt).to_epsg()
+    requested_epsg = int(cfg.crs[5:])
+
+    if retrieved_epsg == requested_epsg:
+        bounds = cfg.bounds
+    else:
+        logging.warning(
+            f"Retrieved epsg {retrieved_epsg} does not match requested epsg {requested_epsg}"
+        )
+
+        bounds = [arr.x[0], arr.y[crop - 1], arr.x[crop - 1], arr.y[0]]
+
+    arr = arr.sel(
+        x=slice(bounds[0], bounds[2]),
+        y=slice(bounds[3], bounds[1]),
+    )
+    return arr
 
 
 def extract_s2(s2_nc_file, cfg, folder, args):
@@ -472,16 +500,16 @@ def extract_s2(s2_nc_file, cfg, folder, args):
     """
     # Load the s2 datacube
     s2_arr = xr.open_dataset(s2_nc_file, mask_and_scale=False)
-    s2_arr = s2_arr.sel(
-        x=slice(cfg.bounds[0], cfg.bounds[2]),
-        y=slice(cfg.bounds[3], cfg.bounds[1]),
-    )
+
+    s2_arr = geographical_slicing(s2_arr, cfg, 990)
 
     # Build no-data mask from Scene classification layer
     no_data_mask = s2_arr.SCL.astype(np.uint8).isin([0, 1, 2, 3, 7, 8, 9, 10])
     no_data_mask = np.logical_or(no_data_mask, s2_arr["dataMask"] == 0)
     no_data_mask = np.logical_or(no_data_mask, s2_arr["CLM"] > 0)
     no_data_mask = np.logical_or(no_data_mask, s2_arr["CLP"] > 150)
+
+    s2_arr["snow"] = s2_arr["SCL"] == 11
 
     mask_stack = []
     # Perform mask dilation since sen2corr mask are very tight
@@ -542,9 +570,17 @@ def extract_s2(s2_nc_file, cfg, folder, args):
         "valid": s2_clear_pixel_rate.values >= args.min_clear_pixel_rate,
         "bands": [None for _ in range(len(s2_arr.t))],
         "mask": [None for _ in range(len(s2_arr.t))],
+        "snow_mask": [None for _ in range(len(s2_arr.t))],
     }
     s2_index = pd.DataFrame(s2_dict).set_index("product_id", drop=False)
+
     # Filter out invalid dates
+    clear_dates = s2_arr.t[s2_clear_pixel_rate >= args.min_clear_pixel_rate]
+    if not len(clear_dates):
+        logging.warning(f"No clear sentinel2 dates found for AOI {cfg.name}")
+        s2_index.to_csv(os.path.join(s2_dir, "index.csv"), sep="\t")
+        return
+
     s2_arr = s2_arr.where(
         s2_arr.t.isin(s2_arr.t[s2_clear_pixel_rate > args.min_clear_pixel_rate]),
         drop=True,
@@ -621,6 +657,17 @@ def extract_s2(s2_nc_file, cfg, folder, args):
     )
     s2_index.loc[product_ids, "mask"] = files
 
+    product_ids, files = netcdf_to_geotiff(
+        s2_arr,
+        s2_dir,
+        bands=["snow"],
+        sensor="sentinel2",
+        nodata=0,
+        dtype="uint8",
+        what="snow_mask",
+    )
+    s2_index.loc[product_ids, "snow_mask"] = files
+
     s2_index.to_csv(os.path.join(s2_dir, "index.csv"), sep="\t")
 
 
@@ -631,10 +678,7 @@ def extract_ls(ls_nc_file, cfg, folder, args):
     # Load the landsat datacube
     ls_arr = xr.open_dataset(ls_nc_file, mask_and_scale=False)
 
-    ls_arr = ls_arr.sel(
-        x=slice(cfg.bounds[0], cfg.bounds[2]),
-        y=slice(cfg.bounds[3], cfg.bounds[1]),
-    )
+    ls_arr = geographical_slicing(ls_arr, cfg, 330)
 
     ls_arr["no_data"] = ("t", "y", "x"), (
         extract_bitmask(ls_arr.BQA, 0)  # fill values
@@ -642,9 +686,10 @@ def extract_ls(ls_nc_file, cfg, folder, args):
         + extract_bitmask(ls_arr.BQA, 2)  # cirrus
         + extract_bitmask(ls_arr.BQA, 3)  # cloud
         + extract_bitmask(ls_arr.BQA, 4)  # cloud shadow
-        + (ls_arr.ST_CDIST.values < 1.0).astype(int)  # distance to cloud < 500m
+        # + (ls_arr.ST_CDIST.values < 1.0).astype(int)  # distance to cloud < 500m
         + (
-            extract_bitmask(ls_arr.SR_QA_AEROSOL, 6)
+            extract_bitmask(ls_arr.SR_QA_AEROSOL, 1)  # Check if aerosols are valid
+            * extract_bitmask(ls_arr.SR_QA_AEROSOL, 6)
             * extract_bitmask(ls_arr.SR_QA_AEROSOL, 7)
         )  # No high aerosol
         + extract_bitmask(ls_arr.QA_RADSAT, 0)  # no saturation
@@ -656,6 +701,8 @@ def extract_ls(ls_nc_file, cfg, folder, args):
         + extract_bitmask(ls_arr.QA_RADSAT, 6)
         + extract_bitmask(ls_arr.QA_RADSAT, 11)  # no terrain occlusion
     ) > 0
+
+    ls_arr["snow"] = ("t", "y", "x"), extract_bitmask(ls_arr.BQA, 5) > 0
 
     # Build mask of data that are zero
     zero_mask = cast(
@@ -708,13 +755,18 @@ def extract_ls(ls_nc_file, cfg, folder, args):
     mask_stack = []
     for t in ls_arr.t:
         current_mask = ls_arr["no_data"].sel(t=t).values
-        mask_stack.append(current_mask)
+        mask_stack.append(mask_processing(current_mask, min_object_size=5, dilation=1))
     mask_stack = np.stack(mask_stack)
     # Introduce nan mask here since we do not want to dilate nan mask
     ls_arr["no_data"] = ("t", "y", "x"), np.logical_or(nan_mask, mask_stack)
 
     ls_clear_pixel_rate = 1 - (
         ls_arr["no_data"].sum(dim=("x", "y")) / (len(ls_arr.x) * len(ls_arr.y))
+    )
+
+    # Compute snow pixel rate
+    ls_snow_pixel_rate = (ls_arr["snow"]).sum(dim=("x", "y")) / (
+        len(ls_arr.x) * len(ls_arr.y)
     )
 
     # Create output dir if not already existing
@@ -731,9 +783,11 @@ def extract_ls(ls_nc_file, cfg, folder, args):
         "product_id": ("landsat_" + ls_arr.t.dt.strftime("%Y%m%d")).values,
         "acquisition_date": ls_arr.t.dt.strftime("%Y-%m-%d").values,
         "clear_pixel_rate": ls_clear_pixel_rate.values,
+        "snow_pixel_rate": ls_snow_pixel_rate.values,
         "valid": ls_clear_pixel_rate.values >= args.min_clear_pixel_rate,
         "bands": [None for _ in range(len(ls_arr.t))],
         "mask": [None for _ in range(len(ls_arr.t))],
+        "snow_mask": [None for _ in range(len(ls_arr.t))],
     }
     ls_index = pd.DataFrame(ls_dict).set_index("product_id", drop=False)
 
@@ -741,7 +795,9 @@ def extract_ls(ls_nc_file, cfg, folder, args):
     clear_dates = ls_arr.t[ls_clear_pixel_rate >= args.min_clear_pixel_rate]
     if not len(clear_dates):
         logging.warning(f"No clear landsat dates found for AOI {cfg.name}")
+        ls_index.to_csv(os.path.join(ls_dir, "index.csv"), sep="\t")
         return
+
     ls_arr = ls_arr.where(
         ls_arr.t.isin(clear_dates),
         drop=True,
@@ -777,6 +833,15 @@ def extract_ls(ls_nc_file, cfg, folder, args):
         prefilter=False,
         mode="reflect",
     )
+    ls_arr["snow"] = ("t", "x", "y"), affine_transform(
+        ls_arr["snow"].to_numpy(),
+        np.eye(3),
+        offset=[0.0, -0.5, -0.5],
+        order=0,
+        prefilter=False,
+        mode="reflect",
+    )
+
     product_ids, files = netcdf_to_geotiff(
         ls_arr,
         ls_dir,
@@ -812,63 +877,66 @@ def extract_ls(ls_nc_file, cfg, folder, args):
     )
     ls_index.loc[product_ids, "mask"] = files
 
-    # product_ids, files = netcdf_to_geotiff(
-    #     ls_arr,
-    #     ls_dir,
-    #     bands=["BQA"],
-    #     sensor="landsat",
-    #     fillna=False,
-    #     scale=1.0,
-    #     nodata=0,
-    #     dtype="uint16",
-    #     what="qa",
-    # )
+    product_ids, files = netcdf_to_geotiff(
+        ls_arr,
+        ls_dir,
+        bands=["snow"],
+        sensor="landsat",
+        fillna=False,
+        scale=1.0,
+        nodata=0,
+        dtype="uint8",
+        what="snow_mask",
+    )
+    ls_index.loc[product_ids, "snow_mask"] = files
 
-    # product_ids, files = netcdf_to_geotiff(
-    #     ls_arr,
-    #     ls_dir,
-    #     bands=["ST_QA"],
-    #     sensor="landsat",
-    #     fillna=False,
-    #     scale=1.0,
-    #     nodata=0,
-    #     dtype="uint16",
-    #     what="st_qa",
-    # )
-    # product_ids, files = netcdf_to_geotiff(
-    #     ls_arr,
-    #     ls_dir,
-    #     bands=["ST_CDIST"],
-    #     sensor="landsat",
-    #     fillna=False,
-    #     scale=1.0,
-    #     nodata=0,
-    #     dtype="float32",
-    #     what="st_cdist",
-    # )
+    if args.ls_qa:
+        product_ids, files = netcdf_to_geotiff(
+            ls_arr,
+            ls_dir,
+            bands=["BQA"],
+            sensor="landsat",
+            fillna=False,
+            scale=1.0,
+            nodata=0,
+            dtype="uint16",
+            what="qa",
+        )
 
-    # product_ids, files = netcdf_to_geotiff(
-    #     ls_arr,
-    #     ls_dir,
-    #     bands=["QA_RADSAT"],
-    #     sensor="landsat",
-    #     fillna=False,
-    #     scale=1.0,
-    #     nodata=0,
-    #     dtype="uint16",
-    #     what="qa_radsat",
-    # )
-    # product_ids, files = netcdf_to_geotiff(
-    #     ls_arr,
-    #     ls_dir,
-    #     bands=["SR_QA_AEROSOL"],
-    #     sensor="landsat",
-    #     fillna=False,
-    #     scale=1.0,
-    #     nodata=0,
-    #     dtype="uint16",
-    #     what="sr_qa_aerosol",
-    # )
+        product_ids, files = netcdf_to_geotiff(
+            ls_arr,
+            ls_dir,
+            bands=["ST_CDIST"],
+            sensor="landsat",
+            fillna=False,
+            scale=1.0,
+            nodata=0,
+            dtype="float32",
+            what="st_cdist",
+        )
+
+        product_ids, files = netcdf_to_geotiff(
+            ls_arr,
+            ls_dir,
+            bands=["QA_RADSAT"],
+            sensor="landsat",
+            fillna=False,
+            scale=1.0,
+            nodata=0,
+            dtype="uint16",
+            what="qa_radsat",
+        )
+        product_ids, files = netcdf_to_geotiff(
+            ls_arr,
+            ls_dir,
+            bands=["SR_QA_AEROSOL"],
+            sensor="landsat",
+            fillna=False,
+            scale=1.0,
+            nodata=0,
+            dtype="uint16",
+            what="sr_qa_aerosol",
+        )
 
     ls_index.to_csv(os.path.join(ls_dir, "index.csv"), sep="\t")
 
@@ -880,10 +948,7 @@ def extract_ls_pan(ls_pan_nc_file, cfg, folder, args):
     # Load the landsat datacube
     ls_arr = xr.open_dataset(ls_pan_nc_file, mask_and_scale=False)
 
-    ls_arr = ls_arr.sel(
-        x=slice(cfg.bounds[0], cfg.bounds[2]),
-        y=slice(cfg.bounds[3], cfg.bounds[1]),
-    )
+    ls_arr = geographical_slicing(ls_arr, cfg, 660)
 
     # Build mask of data that are zero
     zero_mask = (ls_arr["B08"] == 0).values
@@ -915,12 +980,13 @@ def extract_ls_pan(ls_pan_nc_file, cfg, folder, args):
         "bands": [None for _ in range(len(ls_arr.t))],
         "mask": [None for _ in range(len(ls_arr.t))],
     }
-    ls_index = pd.DataFrame(ls_dict).set_index("product_id", drop=False)
+    ls_index = pd.DataFrame(ls_dict).set_index("product_id")
 
     # Filter out invalid dates
     clear_dates = ls_arr.t[ls_clear_pixel_rate >= args.min_clear_pixel_rate]
     if not len(clear_dates):
         logging.warning(f"No clear landsat pan dates found for AOI {cfg.name}")
+        ls_index.to_csv(os.path.join(ls_dir, "index_pan.csv"), sep="\t")
         return
     ls_arr = ls_arr.where(
         ls_arr.t.isin(clear_dates),
@@ -1030,6 +1096,130 @@ def extract(args):
                         )
 
 
+def clean(args):
+    """
+    Clean landsat pan files for invalid landsat dates
+    """
+    for json_file in args.json:
+        # Read configuration
+        cfg = read_json_configuration(json_file)
+
+        # Create output dir if not already existing
+        folder = os.path.join(args.output, cfg.name)
+        # If folder exists
+        if Path(folder).is_dir():
+            # Check and load landsat index and landsat_pan index
+            ls_index_path = Path(os.path.join(folder, "landsat", "index.csv"))
+            if ls_index_path.exists():
+                ls_index = pd.read_csv(ls_index_path, sep="\t", index_col="product_id")
+                ls_index_pan_path = Path(
+                    os.path.join(folder, "landsat", "index_pan.csv")
+                )
+                if ls_index_pan_path.exists():
+                    ls_index_pan = pd.read_csv(
+                        ls_index_pan_path, sep="\t", index_col="product_id"
+                    )
+
+                    invalid_landsat_products = ls_index[~ls_index.valid]
+
+                    for _, row in invalid_landsat_products.iterrows():
+                        data_path = Path(
+                            os.path.join(
+                                folder,
+                                "landsat",
+                                row["acquisition_date"].replace("-", ""),
+                            )
+                        )
+                        if data_path.exists():
+                            rmtree(data_path)
+
+                    missing_pan_products = ls_index[
+                        ~ls_index.index.isin(ls_index_pan.index)
+                    ]
+                    for _, row in missing_pan_products.iterrows():
+                        data_path = Path(
+                            os.path.join(
+                                folder,
+                                "landsat",
+                                row["acquisition_date"].replace("-", ""),
+                            )
+                        )
+                        if data_path.exists():
+                            rmtree(data_path)
+                    ls_index = ls_index[ls_index.index.isin(ls_index_pan.index)]
+                    ls_index_pan = ls_index_pan.loc[ls_index.index].copy()
+                    ls_index_pan.clear_pixel_rate = ls_index.clear_pixel_rate.values
+                    ls_index_pan.valid = ls_index.valid.values
+
+                    ls_index_pan.bands = ls_index_pan.bands.where(ls_index_pan.valid)
+                    ls_index_pan["mask"] = ls_index_pan["mask"].where(
+                        ls_index_pan.valid
+                    )
+                    ls_index.to_csv(ls_index_path, sep="\t")
+                    ls_index_pan.to_csv(ls_index_pan_path, sep="\t")
+
+
+def check_index_and_images(folder: str, index_file: str, expected_size: int):
+    """
+    Helper function to validate each sesor
+    """
+    index_file_path = os.path.join(folder, index_file)
+    index_df = pd.read_csv(index_file_path, sep="\t")
+    for _, row in index_df.iterrows():
+        if row["valid"]:
+            with rio.open(os.path.join(folder, row.bands), "r") as ds:
+                assert ds.width == expected_size
+                assert ds.height == expected_size
+            with rio.open(os.path.join(folder, row["mask"]), "r") as ds:
+                assert ds.width == expected_size
+                assert ds.height == expected_size
+
+
+def check(args):
+    """
+    Perform validity check on all sites by instanciating the dataset
+    """
+    for json_file in tqdm(args.json, total=len(args.json), desc="Checking time-series"):
+        # Read configuration
+        cfg = read_json_configuration(json_file)
+
+        # Create output dir if not already existing
+        folder = os.path.join(args.output, cfg.name)
+
+        try:
+            arr = xr.open_dataset(os.path.join(folder, "sentinel2.nc"))
+            retrieved_epsg = CRS(arr.crs.crs_wkt).to_epsg()
+            requested_epsg = int(cfg.crs[5:])
+
+            if retrieved_epsg != requested_epsg:
+                logging.warning(
+                    "%s: retrieved epsg (%s) does not match the requested epsg (%s)",
+                    cfg.name,
+                    retrieved_epsg,
+                    requested_epsg,
+                )
+
+            check_index_and_images(os.path.join(folder, "sentinel2"), "index.csv", 990)
+            check_index_and_images(os.path.join(folder, "landsat"), "index.csv", 330)
+            check_index_and_images(
+                os.path.join(folder, "landsat"), "index_pan.csv", 660
+            )
+
+            ds = SingleSITSDataset(
+                folder,
+                patch_size=3300,
+                hr_index_files=["index.csv"],
+                lr_index_files=["index.csv", "index_pan.csv"],
+                lr_resolution=15.0,
+            )
+
+            # retrieve first patch
+            ds[0]
+        except Exception as e:
+            logging.warning(f"Site {cfg.name} is invalid ({e})")
+            pass
+
+
 def main(args):
     # Configure logging
     numeric_level = getattr(logging, args.loglevel.upper(), None)
@@ -1050,6 +1240,12 @@ def main(args):
 
     elif args.mode == "extract":
         extract(args)
+
+    elif args.mode == "clean":
+        clean(args)
+
+    elif args.mode == "check":
+        check(args)
 
 
 if __name__ == "__main__":

@@ -91,11 +91,15 @@ class STAIRSITSFusion(torch.nn.Module):
                 )
 
                 # HR prediction on dates with only LR
+                pred_data = lr_only_lr.data + conjunctions_diff_sits_only_lr.data
+                invalid_pred_data = pred_data.isnan().sum(dim=2) > 0
+                pred_data = torch.nan_to_num(pred_data)
+                pred_mask = torch.logical_or(lr_only_lr.mask, invalid_pred_data)
                 predictions.append(
                     MonoModalSITS(
-                        lr_only_lr.data + conjunctions_diff_sits_only_lr.data,
+                        pred_data,
                         lr_only_lr.doy,
-                        lr_only_lr.mask,
+                        pred_mask,
                     )
                 )
 

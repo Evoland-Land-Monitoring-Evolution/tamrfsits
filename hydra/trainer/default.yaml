@@ -3,10 +3,12 @@ accelerator: 'gpu'
 devices: 1
 min_epochs: 1
 max_epochs: 1000
+max_steps: 1000000
 log_every_n_steps : 146 #(20 logs / epoch)
-val_check_interval : 1.
+val_check_interval : 2018
+check_val_every_n_epoch: null
 num_sanity_val_steps : 0
-#gradient_clip_val: 0.5
+gradient_clip_val: 0.1
 precision : 'bf16-mixed'
 deterministic: false
 detect_anomaly: false

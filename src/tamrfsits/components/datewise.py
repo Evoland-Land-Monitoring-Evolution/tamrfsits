@@ -33,7 +33,7 @@ class DateWiseSITSModule(torch.nn.Module):
 
         self.model: torch.nn.Module | CompiledTorchModule | None = model
         if compiled and self.model is not None:
-            self.model = torch.compile(self.model, dynamic=True)
+            self.model.compile(dynamic=True)
         self.upsampling_factor = upsampling_factor
         self.upsampling_mode = upsampling_mode
         self.early_upsampling = early_upsampling

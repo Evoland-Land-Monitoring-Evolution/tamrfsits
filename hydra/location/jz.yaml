@@ -1,3 +1,4 @@
 sen2venus_dataset_path: null
-ls2s2_dataset_path : '${oc.env:WORK}/data/ls2s2_fusion_new'
-output_dir : '${oc.env:WORK}/results/tamrfsits'
+ls2s2_dataset_path : '${oc.env:WORK}/data/ls2s2_fusion'
+ls2s2wwmy_dataset_path : '${oc.env:WORK}/data/ls2s2_ww_my'
+output_dir : '${oc.env:WORK}/results/tamrfsits/rse/'

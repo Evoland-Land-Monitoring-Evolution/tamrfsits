@@ -6,6 +6,7 @@ import torch
 from einops import repeat
 from piq import LPIPS  # type: ignore
 from piq.utils import _reduce  # type: ignore
+from torch import nan_to_num
 
 
 def mask_to_nan(data: torch.Tensor, mask: torch.Tensor):
@@ -45,27 +46,27 @@ class MaskedLPIPSLoss(torch.nn.Module):
             assert mask.shape[i] == pred.shape[j]
 
         pred_features = self.lpips.get_features(pred)
-        ref_features = self.lpips.get_features(ref)
 
-        # Do we need the extra processing
-        if not torch.all(mask):
-            # First, we set masked data to NaN
-            # Here we assume that only the reference needs to be masked
+        # First, we set masked data to NaN
+        # Here we assume that only the reference needs to be masked
+        with torch.no_grad():
             ref_masked = mask_to_nan(ref, ~mask)
+            ref_features = self.lpips.get_features(ref_masked)
 
             # We used masked data to obtain a validity mask of vgg features
-            with torch.no_grad():
-                validity_mask = [
-                    ~torch.isnan(f) for f in self.lpips.get_features(ref_masked)
-                ]
-        else:
-            validity_mask = [torch.ones_like(f) for f in pred_features]
+            validity_mask = [~torch.isnan(f) for f in ref_features]
 
-        nb_valid_features = sum(v.sum() for v in validity_mask)
-        total_nb_features = sum(v.numel() for v in validity_mask)
+            nb_valid_features = sum(v.sum() for v in validity_mask)
+            total_nb_features = sum(v.numel() for v in validity_mask)
 
-        if nb_valid_features == 0:
-            return None
+            if nb_valid_features == 0:
+                return None
+
+            # Now, set nan in ref_features to 0
+            ref_features = [nan_to_num(f) for f in ref_features]
+
+        for f in ref_features:
+            assert torch.all(~torch.isnan(f))
 
         # Compute distances
         distances = self.lpips.compute_distance(pred_features, ref_features)

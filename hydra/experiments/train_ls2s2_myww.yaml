@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: ls2s2_wwmy.yaml
+  - override /training_module: spatiotemporal_fusion.yaml
+  - override /trainer: default.yaml
+
+# Use approximately the same val intervals and max number of steps as
+# for the ls2s2 dataset
+trainer:
+  val_check_interval: 2018
+  max_steps: 2018000

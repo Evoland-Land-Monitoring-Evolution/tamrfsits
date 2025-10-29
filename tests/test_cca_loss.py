@@ -225,7 +225,6 @@ def test_linear_regression_tir():
     # ls_data = tensor_gradient_magnitude(ls_data)
     s2_data_flat = rearrange(s2_data, "c w h -> 1 (w h) c")
     ls_data_flat = rearrange(ls_data, "c w h -> 1 (w h) c")
-    print(s2_data_flat.shape, ls_data_flat.shape)
     s2_data_transformed_flat = vectorized_linear_regression_stable(
         s2_data_flat,
         ls_data_flat,
@@ -233,9 +232,6 @@ def test_linear_regression_tir():
         bias=True,
     )
 
-    print((s2_data_transformed_flat - ls_data_flat).mean())
-    print((s2_data_transformed_flat - ls_data_flat).std())
-    print((ls_data_flat).std())
     s2_data_transformed = rearrange(
         s2_data_transformed_flat,
         "1 (w h) c -> c w h",

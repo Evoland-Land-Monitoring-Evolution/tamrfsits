@@ -8,12 +8,10 @@ Training script for tamrfsits
 import logging
 import os
 from pathlib import Path
-from typing import cast
 
 import hydra
 import pytorch_lightning as pl
 import torch
-from matplotlib.figure import Figure
 from omegaconf import DictConfig
 
 
@@ -119,8 +117,6 @@ def main(config: DictConfig):
         tuner = pl.tuner.Tuner(trainer)
         lr_finder = tuner.lr_find(training_module, data_module, max_lr=1e-2)
         assert lr_finder is not None
-        fig = cast(Figure, lr_finder.plot(suggest=True))
-        fig.savefig(os.path.join(checkpoints_dir, "learning_rate.pdf"), format="pdf")
         logging.info(f"Suggested learning rate: {lr_finder.suggestion()}")
 
     if config.resume_from_checkpoint is None:

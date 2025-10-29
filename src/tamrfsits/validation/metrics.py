@@ -47,6 +47,7 @@ def per_date_per_band_brisque(
     """
     Compute brisque score per date and per band
     """
+    pred[torch.isnan(pred)] = 0.0
     output = torch.full((pred.shape[1], pred.shape[2]), 100.0, device=pred.device)
     clipped_pred = torch.clip(scale * (shift + pred), 0.0, data_range)
 
@@ -88,8 +89,12 @@ def per_date_masked_rmse(
     """
     Compute RMSE per band and per date
     """
+
     assert pred.shape == mask.shape
     assert ref.shape == mask.shape
+
+    mask = torch.logical_and(mask, ~torch.isnan(pred))
+    pred[torch.isnan(pred)] = 0.0
 
     # Compute squared diff
     diff_squared = (pred - ref) ** 2
@@ -105,6 +110,31 @@ def per_date_masked_rmse(
     sum_of_squared_error[denom == 0] = torch.nan
 
     return torch.sqrt(sum_of_squared_error / denom)
+
+
+def per_date_masked_sam(
+    pred: torch.Tensor, ref: torch.Tensor, mask: torch.Tensor, normalize: bool = False
+) -> torch.Tensor:
+    """
+    Compute Spectral Angle Mapper per date
+    """
+    assert pred.shape == mask.shape
+    assert ref.shape == mask.shape
+    mask = torch.logical_and(mask, ~torch.isnan(pred))
+    pred[torch.isnan(pred)] = 0.0
+
+    # Compute squared diff
+    dot_products = torch.matmul(
+        rearrange(pred, "b t c w h -> b t w h 1 c"),
+        rearrange(ref, "b t c w h -> b t w h c 1"),
+    )[:, :, :, :, 0, 0]
+
+    denom = torch.sqrt(((mask * ref) ** 2).sum(dim=(2,)))
+    denom *= torch.sqrt(((mask * pred) ** 2).sum(dim=(2,)))
+
+    sam = torch.acos(dot_products / denom)
+    sam[~mask[:, :, 0, ...]] = torch.nan
+    return torch.nanmean(sam, dim=(0, -1, -2))
 
 
 def per_date_clear_pixel_rate(mask: torch.Tensor) -> torch.Tensor:
@@ -161,6 +191,7 @@ def frr_referenceless(
             s = 2 * pred.shape[-1]
     assert pred.shape[0] == 1
     assert ref.shape[0] == 1
+    pred[torch.isnan(pred)] = 0.0
     pred = rearrange(pred, "b t c w h -> (b t) c w h")
     ref = rearrange(ref, "b t c w h -> (b t) c w h")
     if pred.numel() == 0:

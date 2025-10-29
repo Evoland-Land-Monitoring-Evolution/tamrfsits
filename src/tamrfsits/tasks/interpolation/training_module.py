@@ -65,6 +65,7 @@ class TemporalInterpolationTrainingModuleParameters:
     triplet_loss_margin_masked: float = 0.00001
     triplet_loss_doy_distance_threshold: float = 20.0
     triplet_loss_weight: float = 1.0
+    compute_metrics: bool = False
 
 
 # Split between mae and clr outputs
@@ -191,7 +192,7 @@ class TemporalInterpolationTrainingModule(BaseTrainingModule):
                 has_loss = True
                 total_loss += weight * self.config.triplet_loss_weight * triplet_loss
 
-        if context in ("validation", "test"):
+        if context in ("validation", "test") and self.config.compute_metrics:
             # Upsample target for computation of frr
             pred_ustd = unstandardize_sits(pred, mean, std)
             pred_ds_ustd = unstandardize_sits(pred_ds, mean, std)

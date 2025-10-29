@@ -171,19 +171,18 @@ class SingleSITSDataset(torch.utils.data.Dataset):
                         == hr_index.acquisition_date.dt.date.values
                     )
 
-        # Derive dt orig date
-        if dt_orig is not None:
-            self.dt_orig = pd.to_datetime(dt_orig)
-        else:
-            # If not provided, use first date of first index of hr sensor
-            self.dt_orig = self.hr_index[0].iloc[0].acquisition_date
-
         # Now derive the number of patches
         if self.hr_index[0].empty:
             raise ValueError("No image files found for sensor " + hr_sensor)
         first_hr_date_file = join(
             ts_path, hr_sensor, filename_strip(self.hr_index[0].iloc[0].bands)
         )
+        # Derive dt orig date
+        if dt_orig is not None:
+            self.dt_orig = pd.to_datetime(dt_orig)
+        else:
+            # If not provided, use first date of first index of hr sensor
+            self.dt_orig = self.hr_index[0].iloc[0].acquisition_date
 
         # Derive patch positions and number of patches
         with rio_open(first_hr_date_file, "r") as rio_ds:
@@ -291,6 +290,12 @@ class SingleSITSDataset(torch.utils.data.Dataset):
         ) as rio_ds:
             source_resolution = rio_ds.transform.a
             window = rio_ds.window(*patch)
+
+            # Round to nearest integer position to workaround the corner
+            # case where openeo returns a different UTM projection and
+            # coordinates are not phased
+            window = window.round_offsets()
+
         for _, row in csv.iterrows():
             bands_file = join(self.ts_path, sensor, filename_strip(row.bands))
             mask_file = join(self.ts_path, sensor, filename_strip(row["mask"]))

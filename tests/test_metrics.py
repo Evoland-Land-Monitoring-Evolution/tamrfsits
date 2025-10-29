@@ -5,6 +5,8 @@ Tests for validation.metrics module
 """
 
 
+import math
+
 import torch
 
 from tamrfsits.core.time_series import MonoModalSITS
@@ -14,6 +16,7 @@ from tamrfsits.validation.metrics import (
     frr_referenceless,
     per_date_clear_pixel_rate,
     per_date_masked_rmse,
+    per_date_masked_sam,
     per_date_per_band_brisque,
 )
 
@@ -48,6 +51,36 @@ def test_per_date_masked_rmse():
 
     assert rmse.shape == torch.Size([pred_data.shape[1], pred_data.shape[2]])
     assert torch.all(~torch.isnan(rmse))
+
+    rmse = per_date_masked_rmse(
+        pred_sits.data, ref_sits.data, mask=rmse_mask, normalize=True
+    )
+
+    assert rmse.shape == torch.Size([pred_data.shape[1], pred_data.shape[2]])
+    assert torch.all(~torch.isnan(rmse))
+
+
+def test_per_date_masked_sam():
+    """
+    Test the per_date_masked_sam function
+    """
+    ref_sits = generate_monomodal_sits()
+
+    pred_data = ref_sits.data.clone()
+    pred_data += 10.0
+
+    pred_sits = MonoModalSITS(pred_data, ref_sits.doy)
+    assert ref_sits.mask is not None
+    sam_mask = derive_reference_mask(
+        ref_sits.mask, nb_features=ref_sits.shape()[2], spatial_margin=1
+    )
+
+    sam = per_date_masked_sam(pred_sits.data, ref_sits.data, mask=sam_mask)
+    assert sam.shape == torch.Size([pred_data.shape[1]])
+    assert torch.all(~torch.isnan(sam))
+
+    assert torch.all(sam < math.pi / 2)
+    assert torch.all(sam > 0)
 
 
 def test_per_date_clear_pixel_rate():

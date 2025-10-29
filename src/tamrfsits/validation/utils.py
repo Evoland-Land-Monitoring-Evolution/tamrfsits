@@ -52,7 +52,7 @@ def parse_model_checkpoint(
     Helper function to retrieve model parameters from checkpoint
     """
     return {
-        k.split(".", maxsplit=2)[2]: v
+        k.split(".", maxsplit=2)[2].replace("._orig_mod", ""): v
         for k, v in checkpoint["state_dict"].items()
         if k.startswith(f"{namespace}.{module_name}")
     }

@@ -1,7 +1,8 @@
 optimization_parameters:
   _target_: tamrfsits.tasks.base.OptimizationParameters
   learning_rate : 0.0001
-  t_0 : 2018
+  minimum_learning_rate: 0.00002
+  t_0 : 40360
   t_mult : 2
   weight_decay: 0.
   nb_warmup_steps: 2018 # 1 epoch of linear warmup

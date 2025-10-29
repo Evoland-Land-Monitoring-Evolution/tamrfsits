@@ -100,7 +100,6 @@ def test_joint_sits_dataset_single_site_conjunctions() -> None:
     )
 
     ls_sits, s2_sits = ds[0]
-    print(ls_sits.doy, s2_sits.doy)
     assert torch.all(s2_sits.doy == ls_sits.doy)
     assert s2_sits.shape()[-2] == 3 * ls_sits.shape()[-2]
 

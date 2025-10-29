@@ -28,12 +28,12 @@ def read_results(results_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     del lr_df["Unnamed: 0"]
     lr_df = lr_df.rename(columns={"clear_doy": "clear"})
     lr_df["status"] = "clear"
-    lr_df["status"].where(lr_df.clear, "masked", inplace=True)
+    lr_df["status"] = lr_df["status"].where(lr_df.clear, "masked")
 
     ls_bands = LS_BANDS  # Fix W8202
     for b in ls_bands:
-        lr_df[f"brisque_{b.lower()}"].where(
-            lr_df[f"brisque_{b.lower()}"] < 100.0, inplace=True
+        lr_df[f"brisque_{b.lower()}"] = lr_df[f"brisque_{b.lower()}"].where(
+            lr_df[f"brisque_{b.lower()}"] < 100.0
         )
 
     current_bands: tuple[str, ...] = ("b1", "b2", "b3", "b4", "b5", "b6", "b7")
@@ -49,7 +49,7 @@ def read_results(results_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     del hr_df["Unnamed: 0"]
     hr_df = hr_df.rename(columns={"clear_doy": "clear"})
     hr_df["status"] = "clear"
-    hr_df["status"].where(hr_df.clear, "masked", inplace=True)
+    hr_df["status"] = hr_df["status"].where(hr_df.clear, "masked")
 
     current_bands = ("b2", "b3", "b4", "b8")
     for metric in ("frr", "rmse", "brisque"):
@@ -64,6 +64,9 @@ def read_results(results_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
             hr_df[f"{metric}_{b}"] for b in current_bands
         ) / len(current_bands)
 
+    # Build ids
+    hr_df["id"] = hr_df["name"] + "_" + hr_df["doy"].astype(int).astype(str)
+    lr_df["id"] = lr_df["name"] + "_" + lr_df["doy"].astype(int).astype(str)
     return lr_df, hr_df
 
 
@@ -212,21 +215,36 @@ def compare_violintplot(
     return out_fname
 
 
-def build_result_table(df: pd.DataFrame, labels: list[str]) -> pd.DataFrame:
+def build_result_table(
+    df: pd.DataFrame,
+    labels: list[str],
+    clear_masked: bool = True,
+    compute_std: bool = True,
+    metrics: tuple[str] = ("rmse", "nrmse", "brisque", "frr"),
+) -> pd.DataFrame:
     """
     Build a result table agregated per band an per metric
     """
     clear_lr = df[df.clear]
     masked_lr = df[~df.clear]
-    print(masked_lr)
     out_df_content: dict[str, str | list[str] | np_ndarray] = {"bands": labels}
 
-    for metric in ("rmse", "brisque", "frr"):
-        for label, cdf in zip(["clear", "masked"], [clear_lr, masked_lr]):
-            mean = cdf[[f"{metric}_{b.lower()}" for b in labels]].mean()
-            std = cdf[[f"{metric}_{b.lower()}" for b in labels]].std()
-            out_df_content[f"{metric}_{label}_mean"] = cast(np_ndarray, mean.values)
-            out_df_content[f"{metric}_{label}_std"] = cast(np_ndarray, std.values)
+    for metric in metrics:
+        if clear_masked:
+            for label, cdf in zip(["clear", "masked"], [clear_lr, masked_lr]):
+                mean = cdf[[f"{metric}_{b.lower()}" for b in labels]].mean()
+                out_df_content[f"{metric}_{label}_mean"] = cast(np_ndarray, mean.values)
+                if compute_std:
+                    std = cdf[[f"{metric}_{b.lower()}" for b in labels]].std()
+                    out_df_content[f"{metric}_{label}_std"] = cast(
+                        np_ndarray, std.values
+                    )
+        else:
+            mean = df[[f"{metric}_{b.lower()}" for b in labels]].mean()
+            out_df_content[f"{metric}_mean"] = cast(np_ndarray, mean.values)
+            if compute_std:
+                std = df[[f"{metric}_{b.lower()}" for b in labels]].std()
+                out_df_content[f"{metric}_std"] = cast(np_ndarray, std.values)
 
     out_df = pd.DataFrame(out_df_content).set_index("bands")
     return out_df

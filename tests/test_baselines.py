@@ -10,6 +10,7 @@ from einops import rearrange
 from tamrfsits.baselines.naive import NaiveSITSFusion
 from tamrfsits.baselines.sen2like import Sen2LikeFusion
 from tamrfsits.baselines.stair import STAIRSITSFusion
+from tamrfsits.baselines.utilise import UtiliseGapFilling
 from tamrfsits.baselines.utils import load_dsen2_model, load_dstfn_model
 
 from .tests_utils import FakeHRLRDatamodule
@@ -69,6 +70,49 @@ def test_naive_fusion():
 
     assert torch.all(~torch.isnan(out_lr.data))
     assert torch.all(~torch.isnan(out_hr.data))
+
+
+def test_utilise_gapfilling():
+    """
+    Test UtiliseGapFilling class
+    """
+    nb_hr_features = 4
+    nb_lr_features = 4
+    resolution_ratio = 3
+
+    data_module = FakeHRLRDatamodule(
+        batch_size=1,
+        nb_doys=10,
+        nb_train_samples=16,
+        nb_val_samples=8,
+        nb_test_samples=4,
+        nb_hr_features=nb_hr_features,
+        nb_lr_features=nb_lr_features,
+        resolution_ratio=resolution_ratio,
+        max_doy=15,
+        clear_doy_proba=0.5,
+        lr_width=16,
+        masked=True,
+    )
+
+    # Get the dataloader
+    dataloader = data_module.train_dataloader()
+
+    # Get one batch
+    batch = next(iter(dataloader))
+
+    # Unpack batch
+    lr_sits, hr_sits = batch
+
+    # Derive target doys
+    target_doy = torch.unique(torch.cat((lr_sits.doy, hr_sits.doy)))
+
+    # Build the UtiliseGapFilling instance
+    utilise = UtiliseGapFilling()
+
+    hr_interp = utilise(hr_sits, target_doy)
+
+    assert torch.all(~torch.isnan(hr_interp.data))
 
 
 def test_stair_fusion():
